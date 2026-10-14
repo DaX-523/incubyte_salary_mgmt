@@ -6,10 +6,11 @@ you are changing. Every `CLAUDE.md` just imports its sibling `AGENTS.md`, so edi
 
 ## Layout
 
-| Path        | Stack                                                                     |
-| ----------- | ------------------------------------------------------------------------- |
-| `frontend/` | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, Vitest 5   |
-| `backend/`  | Python 3.13, FastAPI, Pydantic 2, uv, pytest, Ruff, mypy                  |
+| Path         | Contents                                                                           |
+| ------------ | ---------------------------------------------------------------------------------- |
+| `frontend/`  | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, shadcn/ui, Vitest 5 |
+| `backend/`   | Python 3.13, FastAPI, Pydantic 2, SQLAlchemy 2, Alembic, PostgreSQL, uv, pytest    |
+| `artifacts/` | Owner-maintained requirements log and diagrams. **Read-only for agents.**          |
 
 ## Commands (from repo root)
 
@@ -17,12 +18,17 @@ you are changing. Every `CLAUDE.md` just imports its sibling `AGENTS.md`, so edi
 make install       # install both apps' dependencies
 make dev-backend   # API on http://localhost:8000 (OpenAPI docs at /docs)
 make dev-frontend  # web app on http://localhost:3000
-make test          # all unit tests, fast feedback
+make migrate       # apply pending DB migrations (the API also runs them on startup)
+make migration name="add x"  # generate a migration from model changes
+make seed          # 10k demo employees + payroll history (args="--reset" to replace)
+make test          # all tests, fast feedback
 make format        # auto-format and auto-fix lint in both apps
 make check         # lint + format + types + tests with coverage gate, both apps
 ```
 
-The frontend needs Node 24 (`nvm use 24`); uv manages Python for the backend.
+The frontend needs Node 24 (`nvm use 24`); uv manages Python for the backend. The backend reads
+`DATABASE_URL` from `backend/.env` (see `backend/.env.example`). Tests use a separate database,
+`TEST_DATABASE_URL` (default `postgresql://localhost:5432/salary_mgmt_test`), which they wipe.
 
 ## Engineering standards
 
@@ -35,7 +41,8 @@ backend. These are requirements, not suggestions.
   tests in the same change: business rules, calculations, validation, API contracts, and the UI
   behaviour users rely on. A bug fix starts with a failing test that reproduces the bug.
 - **Fast.** Unit tests never touch a real network, real database or the real clock, and never
-  sleep. The whole suite runs in seconds.
+  sleep. The whole suite runs in seconds. Behaviour that only a database can prove (constraints,
+  migrations, queries) belongs in the backend's integration tests, which use the test database.
 - **Deterministic.** Same result on every run, in any order, on any machine. Inject or freeze time,
   randomness, generated IDs, locale and timezone. No state shared between tests. A flaky test is a
   bug: fix it, never retry it.
@@ -75,6 +82,11 @@ backend. These are requirements, not suggestions.
 Salaries are money. Never use binary floats for amounts: use `Decimal` in Python, and decimal
 strings or integer minor units (cents) on the wire and in the frontend. Make currency and rounding
 rules explicit, and test them.
+
+## The `artifacts/` folder
+
+`artifacts/` holds the owner's append-only decision log (`REQUIREMENTS.md`), sketches and derived
+diagrams. Read it for context; do not edit it unless the user explicitly asks.
 
 ## Definition of done
 

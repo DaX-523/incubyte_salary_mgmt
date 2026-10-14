@@ -2,6 +2,8 @@
 
 **Initial Planning**
 
+tech stack - nextjs, fastapi, psql
+
 functional requirements
  - configurable dashboard (shadcn ui for simplicity, chart to show month's data)
  - Filters (default filter in view -> month) to be run on server

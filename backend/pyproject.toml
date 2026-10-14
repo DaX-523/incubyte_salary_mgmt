@@ -4,7 +4,11 @@ version = "0.1.0"
 description = "Salary management API"
 requires-python = ">=3.13"
 dependencies = [
+    "alembic>=1.20.0",
     "fastapi[standard]>=0.143.1",
+    "psycopg[binary]>=3.3.6",
+    "pydantic-settings>=2.16.0",
+    "sqlalchemy>=2.1.4",
 ]
 
 [dependency-groups]
@@ -66,7 +70,9 @@ select = [
 
 [tool.mypy]
 strict = true
-files = ["app", "tests"]
+files = ["app", "tests", "migrations"]
+# tests/ has no __init__.py files; map modules by path so conftest.py names do not clash.
+explicit_package_bases = true
 plugins = ["pydantic.mypy"]
 
 [tool.pydantic-mypy]
