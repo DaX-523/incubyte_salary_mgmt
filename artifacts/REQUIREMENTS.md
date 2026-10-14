@@ -28,3 +28,7 @@ CORE DATA MODEL
         -id, employee_id(fk), month, base, bonus, esops, currency, payment_method, timestamps
         - UNIQUE (employee_id, month) 
     
+
+left out things:
+ - authentication (assuming this portal is for one HR, auth would add extra step and complexity)
+ - dedicated cache like redis (some caching would be on client side, dont wanna overengineer and overcomplicate)
