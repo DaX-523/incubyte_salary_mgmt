@@ -1,0 +1,75 @@
+[project]
+name = "salary-mgmt-backend"
+version = "0.1.0"
+description = "Salary management API"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[standard]>=0.143.1",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13.1",
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.0",
+]
+
+[tool.fastapi]
+entrypoint = "app.main:app"
+
+[tool.pytest]
+minversion = "9.0"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = ["-ra", "--import-mode=importlib"]
+# strict_config, strict_markers, strict_xfail, strict_parametrization_ids
+strict = true
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes
+    "I",       # isort
+    "N",       # pep8-naming
+    "B",       # bugbear
+    "UP",      # pyupgrade
+    "SIM",     # simplify
+    "C4",      # comprehensions
+    "RET",     # return statements
+    "PT",      # pytest style
+    "T20",     # no print()
+    "ERA",     # no commented-out code
+    "ASYNC",   # async pitfalls
+    "FAST",    # FastAPI best practices
+    "RUF",     # ruff-specific
+]
+
+[tool.mypy]
+strict = true
+files = ["app", "tests"]
+plugins = ["pydantic.mypy"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
