@@ -32,3 +32,10 @@ CORE DATA MODEL
 left out things:
  - authentication (assuming this portal is for one HR, auth would add extra step and complexity)
  - dedicated cache like redis (some caching would be on client side, dont wanna overengineer and overcomplicate)
+
+ updated 
+ - dropped the salary filter, as multiple currencies would needed to be bound with it, for sake of simplicity
+ - added a job title field, for better comparisons and filters
+ - last_transaction_at field dropped, as it was bringing redundancy
+ - payment methods reduced to 2 values -> bank, wallet
+ - updated tests and diagrams

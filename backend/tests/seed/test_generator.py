@@ -4,10 +4,13 @@ from decimal import Decimal
 
 import pytest
 
+from app.db.models import PaymentMethod
 from app.seed.generator import (
     COUNTRIES,
     CURRENCY_BY_COUNTRY,
+    JOB_TITLES,
     PAY_DAY,
+    EmployeeSeed,
     SeedData,
     generate_seed_data,
     recent_months,
@@ -16,9 +19,14 @@ from app.seed.generator import (
 TODAY = date(2026, 10, 14)
 MONTHS = recent_months(TODAY, 12)
 CURRENT_MONTH = date(2026, 10, 1)
-SALARY_RANGE_BY_COUNTRY = {
-    country.code: (country.min_monthly_salary, country.max_monthly_salary) for country in COUNTRIES
-}
+BASE_SALARY_BY_COUNTRY = {country.code: country.base_monthly_salary for country in COUNTRIES}
+PAY_LEVEL_BY_TITLE = {job.title: job.pay_level for job in JOB_TITLES}
+
+
+def peer_ratio(employee: EmployeeSeed) -> Decimal:
+    """Salary relative to the norm for its peers (same country and job title)."""
+    norm = BASE_SALARY_BY_COUNTRY[employee.country] * PAY_LEVEL_BY_TITLE[employee.job_title]
+    return employee.monthly_salary / norm
 
 
 @pytest.fixture(scope="module")
@@ -87,19 +95,36 @@ def test_employee_emails_are_unique(data: SeedData) -> None:
     assert len(set(emails)) == len(emails)
 
 
-def test_salaries_are_whole_cents_within_the_country_range(data: SeedData) -> None:
-    out_of_range = [
-        employee
+def test_salaries_are_positive_whole_tens(data: SeedData) -> None:
+    invalid = [
+        employee.monthly_salary
         for employee in data.employees
-        if not (
-            SALARY_RANGE_BY_COUNTRY[employee.country][0]
-            <= employee.monthly_salary
-            <= SALARY_RANGE_BY_COUNTRY[employee.country][1]
-        )
+        if employee.monthly_salary <= 0
+        or employee.monthly_salary % 10 != 0
         or employee.monthly_salary.as_tuple().exponent != -2
     ]
 
-    assert out_of_range == []
+    assert invalid == []
+
+
+def test_job_titles_belong_to_the_employee_department(data: SeedData) -> None:
+    known_roles = {(job.title, job.department) for job in JOB_TITLES}
+
+    assert {(e.job_title, e.department) for e in data.employees} <= known_roles
+
+
+def test_most_salaries_sit_near_their_peer_norm(data: SeedData) -> None:
+    # ±15% spread, plus a little slack for rounding to whole tens.
+    near_norm = [e for e in data.employees if Decimal("0.84") <= peer_ratio(e) <= Decimal("1.16")]
+
+    assert len(near_norm) / len(data.employees) >= 0.9
+
+
+def test_some_salaries_are_planted_far_below_and_above_peers(data: SeedData) -> None:
+    ratios = [peer_ratio(employee) for employee in data.employees]
+
+    assert min(ratios) < Decimal("0.7")
+    assert max(ratios) > Decimal("1.4")
 
 
 def test_each_employee_is_paid_at_most_once_per_month(data: SeedData) -> None:
@@ -121,6 +146,10 @@ def test_payrolls_use_the_employee_salary_and_country_currency(data: SeedData) -
     ]
 
     assert mismatched == []
+
+
+def test_payrolls_use_exactly_the_supported_payment_methods(data: SeedData) -> None:
+    assert {payroll.payment_method for payroll in data.payrolls} == set(PaymentMethod)
 
 
 def test_bonuses_and_esops_are_non_negative_and_sometimes_paid(data: SeedData) -> None:
@@ -153,12 +182,3 @@ def test_payments_are_never_dated_in_the_future(data: SeedData) -> None:
 
     assert current_month_paid_at == {datetime(2026, 10, 14, 9, 0, tzinfo=UTC)}
     assert earlier_paid_days == {PAY_DAY}
-
-
-def test_last_transaction_is_the_latest_payment_or_none(data: SeedData) -> None:
-    # Payrolls are generated oldest first, so the last one per employee wins.
-    latest_paid_at = {payroll.employee_index: payroll.paid_at for payroll in data.payrolls}
-    expected = [latest_paid_at.get(index) for index in range(len(data.employees))]
-
-    assert [employee.last_transaction_at for employee in data.employees] == expected
-    assert None in expected

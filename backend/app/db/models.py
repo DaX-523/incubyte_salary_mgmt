@@ -26,8 +26,6 @@ Money = Numeric(14, 2)
 
 class PaymentMethod(StrEnum):
     BANK_TRANSFER = "bank_transfer"
-    CHEQUE = "cheque"
-    CASH = "cash"
     DIGITAL_WALLET = "digital_wallet"
 
 
@@ -39,6 +37,9 @@ class TimestampMixin:
 
 
 class Employee(TimestampMixin, Base):
+    """An employee. `monthly_salary` is in the local currency of `country`, so salaries are only
+    compared or aggregated within one country (peers: same country and job title)."""
+
     __tablename__ = "employees"
     __table_args__ = (
         CheckConstraint("monthly_salary >= 0", name="monthly_salary_non_negative"),
@@ -48,11 +49,11 @@ class Employee(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
     name: Mapped[str] = mapped_column(String(200), index=True)
     email: Mapped[str] = mapped_column(String(320), unique=True)
-    monthly_salary: Mapped[Decimal] = mapped_column(Money, index=True)
+    monthly_salary: Mapped[Decimal] = mapped_column(Money)
     country: Mapped[str] = mapped_column(String(2), index=True)
-    department: Mapped[str] = mapped_column(String(100))
+    department: Mapped[str] = mapped_column(String(100), index=True)
+    job_title: Mapped[str] = mapped_column(String(150), index=True)
     is_active: Mapped[bool] = mapped_column(server_default=true())
-    last_transaction_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Payroll(TimestampMixin, Base):

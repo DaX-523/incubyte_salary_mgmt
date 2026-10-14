@@ -83,6 +83,10 @@ Salaries are money. Never use binary floats for amounts: use `Decimal` in Python
 strings or integer minor units (cents) on the wire and in the frontend. Make currency and rounding
 rules explicit, and test them.
 
+An employee's `monthly_salary` is in the local currency of their `country`, and there is no
+currency conversion. Only compare or aggregate salaries within a single country (peers share a
+country and job title), and never filter or sort salaries across countries.
+
 ## The `artifacts/` folder
 
 `artifacts/` holds the owner's append-only decision log (`REQUIREMENTS.md`), sketches and derived

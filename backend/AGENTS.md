@@ -59,12 +59,18 @@ Create a directory when the first module needs it. Don't add empty layers.
 - Never edit a migration that has been applied anywhere; add a new one. Every migration has a
   working `downgrade()`.
 - Migrations must not import application code. Freeze values they depend on (see
-  `PAYMENT_METHODS` in the first migration) so old migrations keep working as the app changes.
+  `PAYMENT_METHODS` in the migrations) so old migrations keep working as the app changes.
 - Enforce invariants in the database too: NOT NULL, CHECKs, foreign keys, and
   `UNIQUE (employee_id, month)` on payrolls. Constraint names come from the naming convention in
   `app/db/base.py`; keep them that way so migrations can refer to them.
 - Money columns are `Numeric(14, 2)` mapped to `Decimal`. Countries are ISO 3166-1 alpha-2 codes,
   currencies ISO 4217 codes, months are stored as the first day of the month.
+- `employees.monthly_salary` is in the country's local currency; there is deliberately no salary
+  currency column and no conversion. Pay queries group or filter by `country` first (peers =
+  same `country` and `job_title`), which is what the `country`, `department` and `job_title`
+  indexes serve. There is no salary filter.
+- Store facts once. Don't add columns that can be derived from other tables (the removed
+  `last_transaction_at` was the latest payroll's `created_at`).
 
 ## Writing code
 

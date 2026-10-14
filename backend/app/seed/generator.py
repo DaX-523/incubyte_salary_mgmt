@@ -5,12 +5,13 @@ Pure functions only: same arguments (including `seed` and `today`) produce the s
 
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from random import Random
 
 from app.db.models import PaymentMethod
 
 CENTS = Decimal("0.01")
+SALARY_STEP = Decimal(10)
 PAY_DAY = 25
 PAY_TIME = time(9, 0, tzinfo=UTC)
 EMAIL_DOMAIN = "example.com"
@@ -25,44 +26,69 @@ ESOPS_RATE = 0.05
 BONUS_SHARES = (Decimal("0.05"), Decimal("0.10"), Decimal("0.20"))
 ESOPS_SHARES = (Decimal("0.10"), Decimal("0.25"))
 
-PAYMENT_METHODS = tuple(PaymentMethod)
-PAYMENT_METHOD_WEIGHTS = (80, 5, 3, 12)
+# Most people earn within ±15% of their peer norm (same country and job title)...
+PEER_SPREAD_PERCENT = (85, 115)
+# ...and a few are planted well below or above it, so "who is paid off-peer?" has answers.
+OUTLIER_RATE = 0.03
+OUTLIER_FACTORS = (Decimal("0.6"), Decimal("1.6"))
+
+PAYMENT_METHOD_WEIGHTS = {PaymentMethod.BANK_TRANSFER: 85, PaymentMethod.DIGITAL_WALLET: 15}
 
 
 @dataclass(frozen=True)
 class CountryProfile:
     code: str
     currency: str
-    min_monthly_salary: int
-    max_monthly_salary: int
+    # Monthly pay, in local currency, for a job with pay_level 1.0.
+    base_monthly_salary: int
 
 
 COUNTRIES = (
-    CountryProfile("US", "USD", 4_000, 18_000),
-    CountryProfile("GB", "GBP", 3_000, 12_000),
-    CountryProfile("DE", "EUR", 3_500, 12_000),
-    CountryProfile("FR", "EUR", 3_000, 10_000),
-    CountryProfile("IN", "INR", 50_000, 600_000),
-    CountryProfile("CA", "CAD", 4_500, 16_000),
-    CountryProfile("AU", "AUD", 5_000, 17_000),
-    CountryProfile("SG", "SGD", 4_500, 17_000),
-    CountryProfile("JP", "JPY", 300_000, 1_500_000),
-    CountryProfile("BR", "BRL", 5_000, 35_000),
+    CountryProfile("US", "USD", 6_000),
+    CountryProfile("GB", "GBP", 4_000),
+    CountryProfile("DE", "EUR", 4_500),
+    CountryProfile("FR", "EUR", 3_800),
+    CountryProfile("IN", "INR", 90_000),
+    CountryProfile("CA", "CAD", 5_500),
+    CountryProfile("AU", "AUD", 6_500),
+    CountryProfile("SG", "SGD", 6_000),
+    CountryProfile("JP", "JPY", 400_000),
+    CountryProfile("BR", "BRL", 8_000),
 )
 CURRENCY_BY_COUNTRY = {country.code: country.currency for country in COUNTRIES}
 
-DEPARTMENTS = (
-    "Engineering",
-    "Product",
-    "Design",
-    "Sales",
-    "Marketing",
-    "Finance",
-    "Human Resources",
-    "Operations",
-    "Customer Support",
-    "Legal",
+
+@dataclass(frozen=True)
+class JobTitle:
+    title: str
+    department: str
+    # Pay relative to the country's base salary.
+    pay_level: Decimal
+
+
+JOB_TITLES = (
+    JobTitle("Software Engineer", "Engineering", Decimal("1.3")),
+    JobTitle("Senior Software Engineer", "Engineering", Decimal("1.8")),
+    JobTitle("Engineering Manager", "Engineering", Decimal("2.3")),
+    JobTitle("Product Manager", "Product", Decimal("1.6")),
+    JobTitle("Senior Product Manager", "Product", Decimal("2.1")),
+    JobTitle("Product Designer", "Design", Decimal("1.2")),
+    JobTitle("Senior Product Designer", "Design", Decimal("1.6")),
+    JobTitle("Account Executive", "Sales", Decimal("1.1")),
+    JobTitle("Sales Manager", "Sales", Decimal("1.7")),
+    JobTitle("Marketing Specialist", "Marketing", Decimal("1.0")),
+    JobTitle("Marketing Manager", "Marketing", Decimal("1.6")),
+    JobTitle("Accountant", "Finance", Decimal("1.1")),
+    JobTitle("Financial Analyst", "Finance", Decimal("1.3")),
+    JobTitle("HR Generalist", "Human Resources", Decimal("1.0")),
+    JobTitle("HR Business Partner", "Human Resources", Decimal("1.5")),
+    JobTitle("Operations Associate", "Operations", Decimal("0.9")),
+    JobTitle("Operations Manager", "Operations", Decimal("1.5")),
+    JobTitle("Support Specialist", "Customer Support", Decimal("0.8")),
+    JobTitle("Support Team Lead", "Customer Support", Decimal("1.2")),
+    JobTitle("Legal Counsel", "Legal", Decimal("2.0")),
 )
+
 FIRST_NAMES = (
     "Aarav", "Aisha", "Alex", "Amelia", "Ana", "Arjun", "Ben", "Carlos", "Chloe", "Daniel",
     "Diya", "Elena", "Emma", "Ethan", "Fatima", "Hana", "Hiro", "Isabel", "James", "Kavya",
@@ -85,9 +111,9 @@ class EmployeeSeed:
     monthly_salary: Decimal
     country: str
     department: str
+    job_title: str
     is_active: bool
     created_at: datetime
-    last_transaction_at: datetime | None
 
 
 @dataclass(frozen=True)
@@ -131,26 +157,20 @@ def generate_seed_data(employee_count: int, months: list[date], today: date, see
     employees: list[EmployeeSeed] = []
     payrolls: list[PayrollSeed] = []
     for index in range(employee_count):
-        employee_payrolls = _payrolls_for(index, months, today, rng)
-        employees.append(_employee(index, months, employee_payrolls, rng))
-        payrolls.extend(employee_payrolls.payrolls)
+        employee, employee_payrolls = _employee_with_payrolls(index, months, today, rng)
+        employees.append(employee)
+        payrolls.extend(employee_payrolls)
     return SeedData(employees=employees, payrolls=payrolls)
 
 
-@dataclass(frozen=True)
-class _EmploymentHistory:
-    profile: CountryProfile
-    monthly_salary: Decimal
-    first_month_index: int
-    is_active: bool
-    payrolls: list[PayrollSeed]
-
-
-def _payrolls_for(index: int, months: list[date], today: date, rng: Random) -> _EmploymentHistory:
-    profile = rng.choice(COUNTRIES)
-    monthly_salary = Decimal(
-        rng.randint(profile.min_monthly_salary // 10, profile.max_monthly_salary // 10) * 10
-    ).quantize(CENTS)
+def _employee_with_payrolls(
+    index: int, months: list[date], today: date, rng: Random
+) -> tuple[EmployeeSeed, list[PayrollSeed]]:
+    country = rng.choice(COUNTRIES)
+    job = rng.choice(JOB_TITLES)
+    first_name = rng.choice(FIRST_NAMES)
+    last_name = rng.choice(LAST_NAMES)
+    monthly_salary = _monthly_salary(country, job, rng)
     last_index = len(months) - 1
     first_month_index = (
         0 if rng.random() < EMPLOYED_FOR_WHOLE_WINDOW_RATE else rng.randint(0, last_index)
@@ -162,8 +182,21 @@ def _payrolls_for(index: int, months: list[date], today: date, rng: Random) -> _
     else:
         # Left at some point inside the window, so never paid for the current month.
         end_index = rng.randint(first_month_index, last_index)
-    payment_method = rng.choices(PAYMENT_METHODS, weights=PAYMENT_METHOD_WEIGHTS)[0]
+    payment_method = rng.choices(
+        list(PAYMENT_METHOD_WEIGHTS), weights=list(PAYMENT_METHOD_WEIGHTS.values())
+    )[0]
 
+    employee = EmployeeSeed(
+        name=f"{first_name} {last_name}",
+        # The index keeps emails unique even when names repeat.
+        email=f"{first_name}.{last_name}.{index + 1}@{EMAIL_DOMAIN}".lower(),
+        monthly_salary=monthly_salary,
+        country=country.code,
+        department=job.department,
+        job_title=job.title,
+        is_active=is_active,
+        created_at=datetime.combine(months[first_month_index], PAY_TIME),
+    )
     payrolls = [
         PayrollSeed(
             employee_index=index,
@@ -171,31 +204,25 @@ def _payrolls_for(index: int, months: list[date], today: date, rng: Random) -> _
             base=monthly_salary,
             bonus=_optional_share(monthly_salary, BONUS_RATE, BONUS_SHARES, rng),
             esops=_optional_share(monthly_salary, ESOPS_RATE, ESOPS_SHARES, rng),
-            currency=profile.currency,
+            currency=country.currency,
             payment_method=payment_method,
             paid_at=datetime.combine(min(month.replace(day=PAY_DAY), today), PAY_TIME),
         )
         for month in months[first_month_index:end_index]
     ]
-    return _EmploymentHistory(profile, monthly_salary, first_month_index, is_active, payrolls)
+    return employee, payrolls
 
 
-def _employee(
-    index: int, months: list[date], history: _EmploymentHistory, rng: Random
-) -> EmployeeSeed:
-    first_name = rng.choice(FIRST_NAMES)
-    last_name = rng.choice(LAST_NAMES)
-    return EmployeeSeed(
-        name=f"{first_name} {last_name}",
-        # The index keeps emails unique even when names repeat.
-        email=f"{first_name}.{last_name}.{index + 1}@{EMAIL_DOMAIN}".lower(),
-        monthly_salary=history.monthly_salary,
-        country=history.profile.code,
-        department=rng.choice(DEPARTMENTS),
-        is_active=history.is_active,
-        created_at=datetime.combine(months[history.first_month_index], PAY_TIME),
-        last_transaction_at=history.payrolls[-1].paid_at if history.payrolls else None,
+def _monthly_salary(country: CountryProfile, job: JobTitle, rng: Random) -> Decimal:
+    """Country base x job level, spread around the peer norm, rounded to a whole SALARY_STEP."""
+    salary = (
+        country.base_monthly_salary * job.pay_level * Decimal(rng.randint(*PEER_SPREAD_PERCENT))
     )
+    salary /= 100
+    if rng.random() < OUTLIER_RATE:
+        salary *= rng.choice(OUTLIER_FACTORS)
+    steps = (salary / SALARY_STEP).quantize(Decimal(1), rounding=ROUND_HALF_UP)
+    return (steps * SALARY_STEP).quantize(CENTS)
 
 
 def _optional_share(
@@ -203,4 +230,4 @@ def _optional_share(
 ) -> Decimal:
     if rng.random() >= probability:
         return Decimal("0.00")
-    return (amount * rng.choice(shares)).quantize(CENTS)
+    return (amount * rng.choice(shares)).quantize(CENTS, rounding=ROUND_HALF_UP)

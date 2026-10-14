@@ -1,7 +1,8 @@
 # Diagrams
 
-Derived from `REQUIREMENTS.md`, with `init.png` filling in details the log does not cover
-(dashboard insight, server-side pagination).
+Derived from `REQUIREMENTS.md` (up to the "updated filters" entry) and the current schema
+(migration `0002`). `init.png` fills in details the log does not cover: the "paid vs total"
+insight and server-side pagination.
 
 ## Core data model
 
@@ -13,11 +14,11 @@ erDiagram
         int id PK "filter"
         string name "filter"
         string email
-        decimal monthly_salary "filter: salary"
+        decimal monthly_salary "local currency of country"
         string country "filter"
         string department
+        string job_title "filter"
         boolean is_active
-        timestamp last_transaction_at
         timestamp created_at
         timestamp updated_at
     }
@@ -30,7 +31,7 @@ erDiagram
         decimal bonus
         decimal esops
         string currency
-        string payment_method
+        string payment_method "bank_transfer or digital_wallet"
         timestamp created_at
         timestamp updated_at
     }
@@ -44,8 +45,8 @@ flowchart LR
 
     subgraph fe["Frontend (Next.js)"]
         ui["Accessible component library<br/>(shadcn/ui)"]
-        dash["Configurable dashboard<br/>paid this month vs total employees"]
-        controls["Filter controls<br/>month (default), id, name,<br/>country, salary"]
+        dash["Configurable dashboard<br/>chart of the month's data<br/>(paid vs total employees)"]
+        controls["Filter controls<br/>month (default), id, name,<br/>country, job title"]
         feval["Validation"]
     end
 
@@ -54,10 +55,12 @@ flowchart LR
         query["Filtering + pagination<br/>run on the server"]
     end
 
-    subgraph data["Core data model"]
+    subgraph data["PostgreSQL"]
         emp[("EMPLOYEES")]
         pay[("PAYROLLS<br/>unique per employee + month")]
     end
+
+    out["Left out on purpose:<br/>authentication, dedicated cache (Redis)"]
 
     hr --> dash --> controls --> feval
     feval -- "month + filters + page" --> beval --> query
@@ -65,4 +68,6 @@ flowchart LR
     query --> pay
     emp -- "1 to many" --- pay
     ui -.- dash
+
+    style out stroke-dasharray: 5 5
 ```
