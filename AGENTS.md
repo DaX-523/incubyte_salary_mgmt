@@ -27,7 +27,8 @@ make check         # lint + format + types + tests with coverage gate, both apps
 ```
 
 The frontend needs Node 24 (`nvm use 24`); uv manages Python for the backend. The backend reads
-`DATABASE_URL` from `backend/.env` (see `backend/.env.example`). Tests use a separate database,
+`DATABASE_URL` from `backend/.env` (see `backend/.env.example`); the frontend reads `API_BASE_URL`
+(default `http://localhost:8000`). Tests use a separate database,
 `TEST_DATABASE_URL` (default `postgresql://localhost:5432/salary_mgmt_test`), which they wipe.
 
 ## Engineering standards

@@ -58,3 +58,32 @@ API model schema (proper versioning and prefixed and propely validated)
 POINTS:
     - maintain historic data, set active to false if someone resigns, payrolls indicate transactions so shouldnt be allowed to delete
     - dashboard chart to show "paid vs total employees for the month"
+
+
+NEXT STEPS and frontend views planning:
+    ASKED claude to review the model, it suggested some good changes missed by me which i approved, and some complex ones which i disapproved.
+    - it suggested sorting salaries, fixed date format, DELETE TO PATCH
+    - suggested some changes in /month api, which merged employees with /month api with some filters
+
+    NEW model looks like
+    /api/v1
+    GET   /employees?month=&id=&name=&country=&job_title= (paginated)
+    POST  /employees
+    GET   /employees/{id}
+    PATCH /employees/{id}                     
+    POST  /employees/{id}/payrolls
+
+    GET   /payrolls/{id}
+    PATCH /payrolls/{id}
+    GET   /insights/payroll-status?month=&country=    (chart)
+    GET   /insights/pay-by-job-title?country=
+
+    GET   /filters
+
+    frontend 
+    - / -> dashboard
+    - /insights
+    - /employees , /employees/new, /employees/:id
+    - /payrolls/id
+
+    error page and handling

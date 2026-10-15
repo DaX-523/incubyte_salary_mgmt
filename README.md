@@ -2,10 +2,10 @@
 
 Monorepo with a Next.js frontend and a FastAPI backend.
 
-| Path        | Stack                                                                |
-| ----------- | -------------------------------------------------------------------- |
-| `frontend/` | Next.js 16, React 19, TypeScript, Tailwind CSS 4, shadcn/ui, Vitest  |
-| `backend/`  | Python 3.13, FastAPI, SQLAlchemy 2, Alembic, PostgreSQL, uv, pytest  |
+| Path        | Stack                                                               |
+| ----------- | ------------------------------------------------------------------- |
+| `frontend/` | Next.js 16, React 19, TypeScript, Tailwind CSS 4, shadcn/ui, Vitest |
+| `backend/`  | Python 3.13, FastAPI, SQLAlchemy 2, Alembic, PostgreSQL, uv, pytest |
 
 ## Prerequisites
 
@@ -23,6 +23,23 @@ make dev-backend    # http://localhost:8000 (API docs at /docs); applies migrati
 make seed           # 10k demo employees with 12 months of payroll history
 make dev-frontend   # http://localhost:3000
 ```
+
+The frontend calls the API at `API_BASE_URL`, which defaults to `http://localhost:8000`. To point
+it elsewhere, copy `frontend/.env.example` to `frontend/.env.local`.
+
+## What it does
+
+- **Dashboard** (`/`): one month's payroll, defaulting to the current month. It filters by
+  employee ID, name, country and job title, and shows a chart of paid vs total employees. Salary
+  sorting is available once a country is chosen.
+- **Pay by job title** (`/insights`): headcount and salary range per job title within one country.
+  "Rank by salary" opens that job title's peers sorted by pay, showing who is paid well above or
+  below them.
+- **Employees and payrolls**: add and edit employees, record and correct payrolls, and deactivate
+  employees who leave (history is kept).
+
+Salaries are in each country's local currency and are never converted, so pay is only compared
+within a country.
 
 Tests use `TEST_DATABASE_URL` (default `postgresql://localhost:5432/salary_mgmt_test`) and wipe it.
 

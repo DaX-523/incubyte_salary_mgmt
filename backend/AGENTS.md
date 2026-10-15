@@ -35,17 +35,19 @@ on startup (serialized with a Postgres advisory lock); when unset, it starts wit
 
 ```text
 app/
-  main.py        create_app(): wiring only (routers, lifespan, exception handlers)
+  main.py        create_app(): wiring only (routers under /api/v1, lifespan, error handlers)
   core/          settings
+  domain/        catalog.py (countries → currency, job titles → department), errors.py
   api/           routers: parse request → call service → map result or error to HTTP
   schemas/       Pydantic request/response models (the API contract)
   services/      business logic: plain Python, no FastAPI imports
-  repositories/  queries behind small interfaces
+  repositories/  SQL behind small Protocols; tests swap in the fakes from tests/fakes.py
   db/            SQLAlchemy models (models.py), metadata (base.py), migration runner (migrate.py)
   seed/          demo data: pure generator, database writer, CLI (`python -m app.seed`)
 migrations/      Alembic environment and versions/
 tests/           mirrors app/: app/services/payroll.py ↔ tests/services/test_payroll.py
-  conftest.py    shared fixtures: `app` (fresh per test, no database) and `client`
+  conftest.py    shared fixtures: `app`, `client` and the in-memory repositories
+  api/           contract tests; `api_client` serves the in-memory repositories
   integration/   tests against a real Postgres (TEST_DATABASE_URL)
 ```
 
@@ -71,6 +73,21 @@ Create a directory when the first module needs it. Don't add empty layers.
   indexes serve. There is no salary filter.
 - Store facts once. Don't add columns that can be derived from other tables (the removed
   `last_transaction_at` was the latest payroll's `created_at`).
+
+## The API
+
+Everything lives under `/api/v1` (OpenAPI docs at `/docs`). Domain errors map to HTTP in
+`app/api/errors.py`: `NotFoundError` → 404, `ConflictError` → 409; request validation is 422.
+
+- Money goes over the wire as decimal strings with two places (`"4780.00"`); months as `YYYY-MM`.
+- Clients send catalog values (country, job title) and the server derives the rest: department
+  from job title, currency from country. Request models use `extra="forbid"`, so a client can't
+  set a derived or fixed field (`department`, `currency`, a payroll's `month`, an employee's
+  `country`).
+- `DELETE /employees/{id}` deactivates; nothing is ever deleted, and inactive employees can't get
+  new payrolls.
+- "On the books for a month" (`app/repositories/population.py`) is shared by the monthly list
+  and the paid-vs-total insight, so the two always agree.
 
 ## Writing code
 
