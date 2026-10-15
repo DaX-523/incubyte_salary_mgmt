@@ -6,6 +6,11 @@ from fastapi.testclient import TestClient
 
 from app.core.config import Settings
 from app.main import create_app
+from tests.fakes import (
+    InMemoryEmployeeRepository,
+    InMemoryPayrollRepository,
+    StubInsightsRepository,
+)
 
 
 @pytest.fixture
@@ -18,3 +23,18 @@ def app() -> FastAPI:
 def client(app: FastAPI) -> Iterator[TestClient]:
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture
+def employee_repository() -> InMemoryEmployeeRepository:
+    return InMemoryEmployeeRepository()
+
+
+@pytest.fixture
+def payroll_repository() -> InMemoryPayrollRepository:
+    return InMemoryPayrollRepository()
+
+
+@pytest.fixture
+def insights_repository() -> StubInsightsRepository:
+    return StubInsightsRepository()

@@ -10,6 +10,7 @@ from collections.abc import Iterator
 import pytest
 from alembic import command
 from sqlalchemy import Engine, create_engine, text
+from sqlalchemy.orm import Session
 
 from app.core.config import normalize_database_url
 from app.db.migrate import alembic_config, run_migrations
@@ -37,3 +38,9 @@ def engine(migrated_engine: Engine) -> Iterator[Engine]:
     yield migrated_engine
     with migrated_engine.begin() as connection:
         connection.execute(text("TRUNCATE payrolls, employees RESTART IDENTITY"))
+
+
+@pytest.fixture
+def session(engine: Engine) -> Iterator[Session]:
+    with Session(engine) as session:
+        yield session
