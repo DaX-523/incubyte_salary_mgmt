@@ -5,11 +5,11 @@ from decimal import Decimal
 import pytest
 
 from app.db.models import PaymentMethod
+from app.domain.catalog import COUNTRIES, CURRENCY_BY_COUNTRY, JOB_TITLES
 from app.seed.generator import (
-    COUNTRIES,
-    CURRENCY_BY_COUNTRY,
-    JOB_TITLES,
+    BASE_MONTHLY_SALARY_BY_COUNTRY,
     PAY_DAY,
+    PAY_LEVEL_BY_JOB_TITLE,
     EmployeeSeed,
     SeedData,
     generate_seed_data,
@@ -19,13 +19,14 @@ from app.seed.generator import (
 TODAY = date(2026, 10, 14)
 MONTHS = recent_months(TODAY, 12)
 CURRENT_MONTH = date(2026, 10, 1)
-BASE_SALARY_BY_COUNTRY = {country.code: country.base_monthly_salary for country in COUNTRIES}
-PAY_LEVEL_BY_TITLE = {job.title: job.pay_level for job in JOB_TITLES}
 
 
 def peer_ratio(employee: EmployeeSeed) -> Decimal:
     """Salary relative to the norm for its peers (same country and job title)."""
-    norm = BASE_SALARY_BY_COUNTRY[employee.country] * PAY_LEVEL_BY_TITLE[employee.job_title]
+    norm = (
+        BASE_MONTHLY_SALARY_BY_COUNTRY[employee.country]
+        * PAY_LEVEL_BY_JOB_TITLE[employee.job_title]
+    )
     return employee.monthly_salary / norm
 
 
@@ -53,6 +54,11 @@ def test_recent_months_lists_month_starts_oldest_first(
 def test_recent_months_rejects_non_positive_count(count: int) -> None:
     with pytest.raises(ValueError, match="at least 1"):
         recent_months(TODAY, count)
+
+
+def test_pay_tables_cover_exactly_the_catalog() -> None:
+    assert set(BASE_MONTHLY_SALARY_BY_COUNTRY) == {country.code for country in COUNTRIES}
+    assert set(PAY_LEVEL_BY_JOB_TITLE) == {job.title for job in JOB_TITLES}
 
 
 def test_generation_is_deterministic_for_a_seed() -> None:

@@ -9,6 +9,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from random import Random
 
 from app.db.models import PaymentMethod
+from app.domain.catalog import COUNTRIES, JOB_TITLES, Country, JobTitle
 
 CENTS = Decimal("0.01")
 SALARY_STEP = Decimal(10)
@@ -35,59 +36,43 @@ OUTLIER_FACTORS = (Decimal("0.6"), Decimal("1.6"))
 PAYMENT_METHOD_WEIGHTS = {PaymentMethod.BANK_TRANSFER: 85, PaymentMethod.DIGITAL_WALLET: 15}
 
 
-@dataclass(frozen=True)
-class CountryProfile:
-    code: str
-    currency: str
-    # Monthly pay, in local currency, for a job with pay_level 1.0.
-    base_monthly_salary: int
+# Monthly pay, in each country's local currency, for a job with pay level 1.0.
+BASE_MONTHLY_SALARY_BY_COUNTRY = {
+    "US": 6_000,
+    "GB": 4_000,
+    "DE": 4_500,
+    "FR": 3_800,
+    "IN": 90_000,
+    "CA": 5_500,
+    "AU": 6_500,
+    "SG": 6_000,
+    "JP": 400_000,
+    "BR": 8_000,
+}
 
-
-COUNTRIES = (
-    CountryProfile("US", "USD", 6_000),
-    CountryProfile("GB", "GBP", 4_000),
-    CountryProfile("DE", "EUR", 4_500),
-    CountryProfile("FR", "EUR", 3_800),
-    CountryProfile("IN", "INR", 90_000),
-    CountryProfile("CA", "CAD", 5_500),
-    CountryProfile("AU", "AUD", 6_500),
-    CountryProfile("SG", "SGD", 6_000),
-    CountryProfile("JP", "JPY", 400_000),
-    CountryProfile("BR", "BRL", 8_000),
-)
-CURRENCY_BY_COUNTRY = {country.code: country.currency for country in COUNTRIES}
-
-
-@dataclass(frozen=True)
-class JobTitle:
-    title: str
-    department: str
-    # Pay relative to the country's base salary.
-    pay_level: Decimal
-
-
-JOB_TITLES = (
-    JobTitle("Software Engineer", "Engineering", Decimal("1.3")),
-    JobTitle("Senior Software Engineer", "Engineering", Decimal("1.8")),
-    JobTitle("Engineering Manager", "Engineering", Decimal("2.3")),
-    JobTitle("Product Manager", "Product", Decimal("1.6")),
-    JobTitle("Senior Product Manager", "Product", Decimal("2.1")),
-    JobTitle("Product Designer", "Design", Decimal("1.2")),
-    JobTitle("Senior Product Designer", "Design", Decimal("1.6")),
-    JobTitle("Account Executive", "Sales", Decimal("1.1")),
-    JobTitle("Sales Manager", "Sales", Decimal("1.7")),
-    JobTitle("Marketing Specialist", "Marketing", Decimal("1.0")),
-    JobTitle("Marketing Manager", "Marketing", Decimal("1.6")),
-    JobTitle("Accountant", "Finance", Decimal("1.1")),
-    JobTitle("Financial Analyst", "Finance", Decimal("1.3")),
-    JobTitle("HR Generalist", "Human Resources", Decimal("1.0")),
-    JobTitle("HR Business Partner", "Human Resources", Decimal("1.5")),
-    JobTitle("Operations Associate", "Operations", Decimal("0.9")),
-    JobTitle("Operations Manager", "Operations", Decimal("1.5")),
-    JobTitle("Support Specialist", "Customer Support", Decimal("0.8")),
-    JobTitle("Support Team Lead", "Customer Support", Decimal("1.2")),
-    JobTitle("Legal Counsel", "Legal", Decimal("2.0")),
-)
+# Pay relative to the country's base salary.
+PAY_LEVEL_BY_JOB_TITLE = {
+    "Software Engineer": Decimal("1.3"),
+    "Senior Software Engineer": Decimal("1.8"),
+    "Engineering Manager": Decimal("2.3"),
+    "Product Manager": Decimal("1.6"),
+    "Senior Product Manager": Decimal("2.1"),
+    "Product Designer": Decimal("1.2"),
+    "Senior Product Designer": Decimal("1.6"),
+    "Account Executive": Decimal("1.1"),
+    "Sales Manager": Decimal("1.7"),
+    "Marketing Specialist": Decimal("1.0"),
+    "Marketing Manager": Decimal("1.6"),
+    "Accountant": Decimal("1.1"),
+    "Financial Analyst": Decimal("1.3"),
+    "HR Generalist": Decimal("1.0"),
+    "HR Business Partner": Decimal("1.5"),
+    "Operations Associate": Decimal("0.9"),
+    "Operations Manager": Decimal("1.5"),
+    "Support Specialist": Decimal("0.8"),
+    "Support Team Lead": Decimal("1.2"),
+    "Legal Counsel": Decimal("2.0"),
+}
 
 FIRST_NAMES = (
     "Aarav", "Aisha", "Alex", "Amelia", "Ana", "Arjun", "Ben", "Carlos", "Chloe", "Daniel",
@@ -213,10 +198,12 @@ def _employee_with_payrolls(
     return employee, payrolls
 
 
-def _monthly_salary(country: CountryProfile, job: JobTitle, rng: Random) -> Decimal:
+def _monthly_salary(country: Country, job: JobTitle, rng: Random) -> Decimal:
     """Country base x job level, spread around the peer norm, rounded to a whole SALARY_STEP."""
     salary = (
-        country.base_monthly_salary * job.pay_level * Decimal(rng.randint(*PEER_SPREAD_PERCENT))
+        BASE_MONTHLY_SALARY_BY_COUNTRY[country.code]
+        * PAY_LEVEL_BY_JOB_TITLE[job.title]
+        * Decimal(rng.randint(*PEER_SPREAD_PERCENT))
     )
     salary /= 100
     if rng.random() < OUTLIER_RATE:
