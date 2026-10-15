@@ -59,6 +59,11 @@ insights use GET forms (`next/form`) and `parseDashboardQuery` turns search para
 query, dropping anything invalid. Mutations are server actions used with `useActionState`; they
 return a `FormState` (field errors, a message, and the submitted values so inputs keep them).
 
+Data is fetched fresh on every request, so an edit shows up at once and there is nothing to
+invalidate. The one exception is the filter catalog: `getFilterOptions` is cached for an hour with
+`"use cache"`, behind `connection()` so `next build` never calls the API. Cache other data only
+with a `cacheTag` that the server actions changing it update.
+
 ## Writing code
 
 - Use Server Components by default. Add `"use client"` only for state, effects, event handlers or

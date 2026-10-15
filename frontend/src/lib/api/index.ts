@@ -1,3 +1,6 @@
+import { cacheLife } from "next/cache";
+import { connection } from "next/server";
+
 import { request } from "./client";
 import type {
   Employee,
@@ -62,6 +65,18 @@ export function getPayByJobTitle(country: string) {
   });
 }
 
-export function getFilterOptions() {
+/**
+ * The catalog only changes when the backend is redeployed, so it is cached for an hour instead of
+ * fetched on every page render. Waiting for a request first keeps `next build` from calling the
+ * API, so the build does not need the backend running.
+ */
+export async function getFilterOptions() {
+  await connection();
+  return cachedFilterOptions();
+}
+
+async function cachedFilterOptions() {
+  "use cache";
+  cacheLife("hours");
   return request<FilterOptions>("GET", "/filters");
 }

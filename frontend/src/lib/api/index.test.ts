@@ -1,12 +1,18 @@
+import { cacheLife } from "next/cache";
+import { connection } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as api from "./index";
+
+vi.mock("next/cache", () => ({ cacheLife: vi.fn() }));
+vi.mock("next/server", () => ({ connection: vi.fn() }));
 
 const fetchMock = vi.fn();
 
 beforeEach(() => {
   fetchMock.mockResolvedValue(new Response("{}", { status: 200 }));
   vi.stubGlobal("fetch", fetchMock);
+  vi.mocked(connection).mockResolvedValue(undefined);
 });
 
 function lastCall() {
@@ -89,5 +95,26 @@ describe("API endpoints", () => {
     await call();
 
     expect(lastCall()).toEqual({ url: path, method });
+  });
+});
+
+describe("getFilterOptions", () => {
+  it("waits for a request before calling the API, so builds never need it", async () => {
+    const incomingRequest = Promise.withResolvers<void>();
+    vi.mocked(connection).mockReturnValue(incomingRequest.promise);
+
+    const options = api.getFilterOptions();
+    const calledBeforeRequest = fetchMock.mock.calls.length;
+    incomingRequest.resolve();
+    await options;
+
+    expect(calledBeforeRequest).toBe(0);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("caches the catalog for an hour", async () => {
+    await api.getFilterOptions();
+
+    expect(cacheLife).toHaveBeenCalledWith("hours");
   });
 });

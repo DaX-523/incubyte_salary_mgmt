@@ -32,6 +32,7 @@ CORE DATA MODEL
 left out things:
  - authentication (assuming this portal is for one HR, auth would add extra step and complexity)
  - dedicated cache like redis (some caching would be on client side, dont wanna overengineer and overcomplicate)
+ - redux or any central store, would be good to use if we want to cache search results, or when we introduce more search options
 
  updated 
  - dropped the salary filter, as multiple currencies would needed to be bound with it, for sake of simplicity
