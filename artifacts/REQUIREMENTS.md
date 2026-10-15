@@ -39,3 +39,22 @@ left out things:
  - last_transaction_at field dropped, as it was bringing redundancy
  - payment methods reduced to 2 values -> bank, wallet
  - updated tests and diagrams
+
+
+API model schema (proper versioning and prefixed and propely validated)
+ - ALL payrolls by month
+    GET /month?filter_query_params (paginated list, probably a JOIN in the backend)
+    GET /insights (doubtful if i should include this, or unecessary overhead)
+ - EMPLOYEE
+    - GET /employees/:id
+    - PATCH /employees/:id
+    - DELETE /employees/:id (set is_active to false, not actual delete)
+    - POST /employees
+ - PAYROLL
+    - GET /payrolls/:id
+    - PATCH /payrolls/:id
+    - POST /payrolls
+
+POINTS:
+    - maintain historic data, set active to false if someone resigns, payrolls indicate transactions so shouldnt be allowed to delete
+    - dashboard chart to show "paid vs total employees for the month"
