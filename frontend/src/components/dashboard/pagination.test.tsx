@@ -1,16 +1,19 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { DashboardQuery } from "@/lib/dashboard-query";
 
 import { Pagination } from "./pagination";
 
+vi.mock("next/navigation", () => ({ useRouter: vi.fn() }));
+
 const QUERY: DashboardQuery = {
   month: "2026-10",
   country: "DE",
-  sort_by: "id",
+  sort_by: "name",
   sort_order: "asc",
   page: 2,
+  page_size: 25,
 };
 
 describe("Pagination", () => {
@@ -25,6 +28,25 @@ describe("Pagination", () => {
     expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute(
       "href",
       "/?month=2026-10&country=DE&page=3",
+    );
+  });
+
+  it("keeps the chosen page size in the page links", () => {
+    render(
+      <Pagination
+        query={{ ...QUERY, page_size: 50 }}
+        total={160}
+        pageSize={50}
+      />,
+    );
+
+    expect(screen.getByText("Showing 51–100 of 160")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute(
+      "href",
+      "/?month=2026-10&country=DE&page=3&page_size=50",
+    );
+    expect(screen.getByRole("combobox", { name: "Rows per page" })).toHaveValue(
+      "50",
     );
   });
 

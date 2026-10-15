@@ -29,9 +29,10 @@ it elsewhere, copy `frontend/.env.example` to `frontend/.env.local`.
 
 ## What it does
 
-- **Dashboard** (`/`): one month's payroll, defaulting to the current month. It filters by
-  employee ID, name, country and job title, and shows a chart of paid vs total employees. Salary
-  sorting is available once a country is chosen.
+- **Dashboard** (`/`): one month's payroll, defaulting to the current month. It shows a chart of
+  paid vs total employees, then a collapsible filters panel (name, email, country, job title) and
+  the employee list, 25, 50 or 100 rows per page. Salary sorting is available once a country is
+  chosen.
 - **Pay by job title** (`/insights`): headcount and salary range per job title within one country.
   "Rank by salary" opens that job title's peers sorted by pay, showing who is paid well above or
   below them.

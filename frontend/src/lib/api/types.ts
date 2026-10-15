@@ -2,7 +2,7 @@
 // and months are "YYYY-MM".
 
 export type PaymentMethod = "bank_transfer" | "digital_wallet";
-export type EmployeeSortField = "id" | "name" | "monthly_salary";
+export type EmployeeSortField = "name" | "monthly_salary";
 export type SortOrder = "asc" | "desc";
 
 export type Employee = {
@@ -42,13 +42,14 @@ export type Page<Item> = {
 
 export type MonthlyEmployeeQuery = {
   month: string;
-  id?: number;
   name?: string;
+  email?: string;
   country?: string;
   job_title?: string;
   sort_by?: EmployeeSortField;
   sort_order?: SortOrder;
   page?: number;
+  page_size?: number;
 };
 
 export type EmployeeCreate = {

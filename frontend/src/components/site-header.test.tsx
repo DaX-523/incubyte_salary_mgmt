@@ -4,14 +4,13 @@ import { describe, expect, it } from "vitest";
 import { SiteHeader } from "./site-header";
 
 describe("SiteHeader", () => {
-  it("links to every section of the app", () => {
+  it("links to every section of the app, with the app name leading home", () => {
     render(<SiteHeader />);
 
     const nav = within(screen.getByRole("navigation", { name: "Main" }));
-    expect(nav.getByRole("link", { name: "Dashboard" })).toHaveAttribute(
-      "href",
-      "/",
-    );
+    expect(
+      nav.getByRole("link", { name: "Salary Management" }),
+    ).toHaveAttribute("href", "/");
     expect(nav.getByRole("link", { name: "Pay by job title" })).toHaveAttribute(
       "href",
       "/insights",
@@ -20,5 +19,6 @@ describe("SiteHeader", () => {
       "href",
       "/employees/new",
     );
+    expect(nav.getAllByRole("link")).toHaveLength(3);
   });
 });

@@ -10,6 +10,7 @@ import { MONTHLY_PAGE, OCTOBER_STATUS, OPTIONS } from "@/test/fixtures";
 
 import DashboardPage from "./page";
 
+vi.mock("next/navigation", () => ({ useRouter: vi.fn() }));
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
   getFilterOptions: vi.fn(),
@@ -48,13 +49,14 @@ describe("DashboardPage", () => {
     ).toBeInTheDocument();
     expect(listEmployeesForMonth).toHaveBeenCalledWith({
       month: "2026-10",
-      id: undefined,
       name: undefined,
+      email: undefined,
       country: undefined,
       job_title: undefined,
-      sort_by: "id",
+      sort_by: "name",
       sort_order: "asc",
       page: 1,
+      page_size: 25,
     });
     expect(getPayrollStatus).toHaveBeenCalledWith({
       month: "2026-10",
@@ -71,6 +73,8 @@ describe("DashboardPage", () => {
       sort_by: "monthly_salary",
       sort_order: "desc",
       page: "2",
+      page_size: "50",
+      email: "ada@",
     });
 
     expect(getPayrollStatus).toHaveBeenCalledWith({
@@ -83,6 +87,8 @@ describe("DashboardPage", () => {
         country: "DE",
         sort_by: "monthly_salary",
         page: 2,
+        page_size: 50,
+        email: "ada@",
       }),
     );
   });
@@ -105,5 +111,17 @@ describe("DashboardPage", () => {
       screen.getByRole("link", { name: "Ada Lovelace" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Showing 1–25 of 60")).toBeInTheDocument();
+  });
+
+  it("shows the paid vs total chart above the filters", async () => {
+    await renderDashboard();
+
+    const chart = screen.getByRole("heading", {
+      name: "Paid vs total employees",
+    });
+    const filters = screen.getByText("Filters and sorting");
+    expect(chart.compareDocumentPosition(filters)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
   });
 });

@@ -35,8 +35,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
         <h1 className="text-2xl font-semibold">Payroll dashboard</h1>
         <p className="text-muted-foreground">{formatMonth(query.month)}</p>
       </header>
-      <FiltersForm query={query} options={options} />
       <PayrollStatusChart status={status} />
+      <FiltersForm query={query} options={options} />
       <section aria-labelledby="employees-heading" className="grid gap-4">
         <h2 id="employees-heading" className="text-lg font-semibold">
           Employees

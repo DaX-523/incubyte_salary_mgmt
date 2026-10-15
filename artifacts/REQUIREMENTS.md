@@ -88,3 +88,6 @@ NEXT STEPS and frontend views planning:
     - /payrolls/id
 
     error page and handling
+
+
+revamp ui/ux and search filters
