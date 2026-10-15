@@ -126,23 +126,23 @@ def test_list_keeps_people_who_left_only_in_months_they_were_paid_for(session: S
 @pytest.mark.parametrize(
     ("query", "expected_names"),
     [
-        ({"id": 2}, ["Alan Turing"]),
-        ({"country": "IN"}, ["Alan Turing", "Ada Byron"]),
+        ({"country": "IN"}, ["Ada Byron", "Alan Turing"]),
         ({"job_title": "Accountant"}, ["Ada Byron"]),
-        ({"name": "ADA"}, ["Ada Lovelace", "Ada Byron"]),
+        ({"name": "ADA"}, ["Ada Byron", "Ada Lovelace"]),
         ({"name": "love"}, ["Ada Lovelace"]),
         ({"name": "%"}, ["100% Grace"]),
         ({"name": "_"}, []),
+        ({"email": "TURING@"}, ["Alan Turing"]),
         ({"country": "IN", "job_title": "Accountant", "name": "byron"}, ["Ada Byron"]),
     ],
     ids=[
-        "by-id",
         "by-country",
         "by-job-title",
         "name-ignores-case",
         "name-matches-a-substring",
         "percent-sign-is-literal",
         "underscore-is-literal",
+        "email-ignores-case-and-matches-a-part",
         "filters-combine",
     ],
 )

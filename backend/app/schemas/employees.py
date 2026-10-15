@@ -1,7 +1,14 @@
 from enum import StrEnum
 from typing import Annotated, Self
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    StringConstraints,
+    model_validator,
+)
 
 from app.db.models import Employee
 from app.domain.catalog import CURRENCY_BY_COUNTRY
@@ -9,7 +16,6 @@ from app.schemas.common import (
     DEFAULT_PAGE_SIZE,
     CountryCode,
     EmployeeName,
-    EntityId,
     JobTitleName,
     Money,
     Month,
@@ -21,6 +27,8 @@ from app.schemas.payrolls import PayrollOut
 
 # Emails are unique per employee regardless of letter case.
 Email = Annotated[EmailStr, AfterValidator(str.lower)]
+# Any part of an email address, matched ignoring case like the name search.
+EmailSearch = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=320)]
 
 
 class EmployeeCreate(BaseModel):
@@ -73,7 +81,6 @@ class EmployeeOut(BaseModel):
 
 
 class EmployeeSortField(StrEnum):
-    ID = "id"
     NAME = "name"
     MONTHLY_SALARY = "monthly_salary"
 
@@ -87,11 +94,11 @@ class MonthlyEmployeeQuery(BaseModel):
     """Who is on the books in `month`, filtered, sorted and paginated."""
 
     month: Month
-    id: EntityId | None = None
     name: EmployeeName | None = None
+    email: EmailSearch | None = None
     country: CountryCode | None = None
     job_title: JobTitleName | None = None
-    sort_by: EmployeeSortField = EmployeeSortField.ID
+    sort_by: EmployeeSortField = EmployeeSortField.NAME
     sort_order: SortOrder = SortOrder.ASC
     page: PageNumber = 1
     page_size: PageSize = DEFAULT_PAGE_SIZE

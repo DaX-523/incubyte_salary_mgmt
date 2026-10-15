@@ -69,7 +69,6 @@ JobTitleName = Annotated[str, AfterValidator(ensure_known_job_title)]
 EmployeeName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
 ]
-EntityId = Annotated[int, Field(ge=1, le=MAX_ID)]
 PageNumber = Annotated[int, Field(ge=1)]
 PageSize = Annotated[int, Field(ge=1, le=MAX_PAGE_SIZE)]
 

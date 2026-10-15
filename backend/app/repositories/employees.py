@@ -12,7 +12,6 @@ from app.repositories.population import MonthFilter, on_the_books, payroll_for_m
 from app.schemas.employees import EmployeeSortField, MonthlyEmployeeQuery, SortOrder
 
 SORT_COLUMNS = {
-    EmployeeSortField.ID: Employee.id,
     EmployeeSortField.NAME: Employee.name,
     EmployeeSortField.MONTHLY_SALARY: Employee.monthly_salary,
 }
@@ -80,8 +79,8 @@ class SqlEmployeeRepository:
             .outerjoin(Payroll, payroll_for_month(query.month))
             .where(*on_the_books(month_filter))
         )
-        if query.id is not None:
-            statement = statement.where(Employee.id == query.id)
         if query.name is not None:
             statement = statement.where(Employee.name.icontains(query.name, autoescape=True))
+        if query.email is not None:
+            statement = statement.where(Employee.email.icontains(query.email, autoescape=True))
         return statement

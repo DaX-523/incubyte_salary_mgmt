@@ -80,6 +80,7 @@ def test_list_sends_the_parsed_filters_to_the_repository(
         params={
             "month": "2026-09",
             "name": "  ada ",
+            "email": " Ada@Example ",
             "country": "DE",
             "job_title": "Accountant",
             "sort_by": "monthly_salary",
@@ -90,18 +91,19 @@ def test_list_sends_the_parsed_filters_to_the_repository(
 
     [query] = employee_repository.monthly_queries
     assert query.month == date(2026, 9, 1)
-    assert (query.name, query.country, query.job_title) == ("ada", "DE", "Accountant")
+    assert (query.name, query.email) == ("ada", "Ada@Example")
+    assert (query.country, query.job_title) == ("DE", "Accountant")
     assert (query.sort_by, query.sort_order) == (EmployeeSortField.MONTHLY_SALARY, SortOrder.DESC)
     assert (query.page, query.page_size) == (3, 25)
 
 
-def test_list_defaults_to_the_first_page_sorted_by_id(
+def test_list_defaults_to_the_first_page_sorted_by_name(
     api_client: TestClient, employee_repository: InMemoryEmployeeRepository
 ) -> None:
     api_client.get("/api/v1/employees", params={"month": "2026-10"})
 
     [query] = employee_repository.monthly_queries
-    assert (query.sort_by, query.sort_order) == (EmployeeSortField.ID, SortOrder.ASC)
+    assert (query.sort_by, query.sort_order) == (EmployeeSortField.NAME, SortOrder.ASC)
     assert (query.page, query.page_size) == (1, 25)
 
 
@@ -115,11 +117,12 @@ def test_list_defaults_to_the_first_page_sorted_by_id(
         ({"month": "2026-10", "country": "de"}, "unknown country"),
         ({"month": "2026-10", "job_title": "Wizard"}, "unknown job title"),
         ({"month": "2026-10", "name": "   "}, "at least 1 character"),
-        ({"month": "2026-10", "id": 0}, "greater than or equal to 1"),
+        ({"month": "2026-10", "email": "   "}, "at least 1 character"),
+        ({"month": "2026-10", "email": "x" * 321}, "at most 320 characters"),
         ({"month": "2026-10", "page": 0}, "greater than or equal to 1"),
         ({"month": "2026-10", "page_size": 0}, "greater than or equal to 1"),
         ({"month": "2026-10", "page_size": 101}, "less than or equal to 100"),
-        ({"month": "2026-10", "sort_by": "email"}, "Input should be"),
+        ({"month": "2026-10", "sort_by": "id"}, "Input should be"),
         ({"month": "2026-10", "sort_by": "monthly_salary"}, "needs a country filter"),
     ],
     ids=[
@@ -130,11 +133,12 @@ def test_list_defaults_to_the_first_page_sorted_by_id(
         "lowercase-country",
         "unknown-job-title",
         "blank-name",
-        "id-zero",
+        "blank-email",
+        "email-too-long",
         "page-zero",
         "page-size-zero",
         "page-size-over-limit",
-        "unsupported-sort",
+        "id-sort-is-gone",
         "salary-sort-across-countries",
     ],
 )
