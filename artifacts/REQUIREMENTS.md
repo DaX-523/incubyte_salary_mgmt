@@ -91,3 +91,11 @@ NEXT STEPS and frontend views planning:
 
 
 revamp ui/ux and search filters
+
+its about time i shall add org level simple stateless auth, for simplicity going with email password token based auth while maitaining basic security
+
+ - login with JWT, TTL 8 hours, frontend keeps it in an HttpOnly cookie
+ - logout: users.session_version is copied into every token, logout changes it so all earlier tokens stop working
+ - organizations table, users and employees belong to one organization, another organization's records give 404
+
+ - demo login is seeded within script
