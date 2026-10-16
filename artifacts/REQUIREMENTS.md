@@ -102,3 +102,22 @@ its about time i shall add org level simple stateless auth, for simplicity going
 
 some left out decisions
 -  user management ui and roles(role based access control), password reset, refresh tokens, limiting login attempts
+
+bug found while sanity check with claude
+
+ - payrolls before the joining month are refused (409) (accepted earlier)
+ - a joined_on column would be better, skipped for now
+ - also found integration tests that would break on 1 nov 2026 (employee created "now", checked
+   against oct 2026).
+
+the insights data was very limited, so i wanted to add some more spec to it
+and to make the dashboard more aligned with working in excel, a simple export should be there
+
+- per country: headcount, average and total monthly salary, each in its own currency
+- average added per job title, next to lowest and highest
+
+payroll history
+ - GET /employees/{id}/payrolls, newest month first, shown on the employee page (inactive ones too)
+
+CSV export
+- "download csv" on the dashboard: everything the filters match, all pages, same order
