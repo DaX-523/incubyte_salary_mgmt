@@ -90,8 +90,9 @@ CORS.
    curl https://salary-mgmt-api.fly.dev/health
    ```
 
-   Migrations run when the API starts. Idle machines stop and start again on the next request,
-   which then takes a few seconds; set `min_machines_running = 1` in `fly.toml` to keep one running.
+   Migrations run when the API starts. Idle machines are suspended, costing storage only, and
+   resume on the next request in under a second; the first request after a deploy waits for a
+   normal start of a few seconds.
 
 3. **Demo data**, once, from `backend/` on your machine. It prints the demo login:
 
