@@ -157,13 +157,48 @@ describe("FiltersForm", () => {
     );
   });
 
-  it("explains that salary sorting needs a country", () => {
-    render(<FiltersForm query={QUERY} options={OPTIONS} />);
+  it.each<[string, Partial<DashboardQuery>]>([
+    ["sorting by name", {}],
+    [
+      "sorting by salary within a country",
+      { sort_by: "monthly_salary", country: "GB" },
+    ],
+  ])("explains that salary sorting needs a country when %s", (_, sort) => {
+    render(<FiltersForm query={{ ...QUERY, ...sort }} options={OPTIONS} />);
 
-    expect(
-      screen.getByRole("combobox", { name: "Sort by" }),
-    ).toHaveAccessibleDescription(
+    const sortBy = screen.getByRole("combobox", { name: "Sort by" });
+    expect(sortBy).toHaveAccessibleDescription(
       "Salaries are in local currency, so salary sorting needs a country.",
     );
+    expect(sortBy).toBeValid();
+  });
+
+  it("asks for a country when sorting by salary without one", () => {
+    render(
+      <FiltersForm
+        query={{ ...QUERY, sort_by: "monthly_salary" }}
+        options={OPTIONS}
+      />,
+    );
+
+    const sortBy = screen.getByRole("combobox", { name: "Sort by" });
+    expect(sortBy).toHaveValue("monthly_salary");
+    expect(sortBy).toBeInvalid();
+    expect(sortBy).toHaveAccessibleDescription(
+      "Choose a country to sort by salary. Until then, the list is sorted by name.",
+    );
+  });
+
+  it("shows the applied filters again after the dashboard navigates", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <FiltersForm query={{ ...QUERY, name: "ann" }} options={OPTIONS} />,
+    );
+    await user.click(screen.getByText("Filters and sorting"));
+    await user.type(screen.getByRole("searchbox", { name: "Name" }), "ie");
+
+    rerender(<FiltersForm query={QUERY} options={OPTIONS} />);
+
+    expect(screen.getByRole("searchbox", { name: "Name" })).toHaveValue("");
   });
 });

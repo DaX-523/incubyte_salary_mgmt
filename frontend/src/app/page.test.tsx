@@ -93,6 +93,17 @@ describe("DashboardPage", () => {
     );
   });
 
+  it("lists by name, but keeps the requested salary sort, when no country is chosen", async () => {
+    await renderDashboard({ sort_by: "monthly_salary" });
+
+    expect(listEmployeesForMonth).toHaveBeenCalledWith(
+      expect.objectContaining({ sort_by: "name" }),
+    );
+    expect(screen.getByRole("combobox", { name: "Sort by" })).toHaveValue(
+      "monthly_salary",
+    );
+  });
+
   it("ignores filter values the API does not offer", async () => {
     await renderDashboard({ country: "XX", job_title: "Wizard" });
 

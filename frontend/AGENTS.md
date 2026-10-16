@@ -56,7 +56,9 @@ Pages are async Server Components that call `@/lib/api` on the server, so the br
 to the backend directly and the backend needs no CORS. The backend URL comes from `API_BASE_URL`
 (default `http://localhost:8000`; see `.env.example`). Filters live in the URL: the dashboard and
 insights use GET forms (`next/form`) and `parseDashboardQuery` turns search params into a valid
-query, dropping anything invalid. Mutations are server actions used with `useActionState`; they
+query, dropping anything invalid. It keeps a salary sort without a country so the form can show it
+with a hint; `employeeListQuery` sorts that list by name. The filters form is keyed on the query,
+so after any navigation its fields show what was applied. Mutations are server actions used with `useActionState`; they
 return a `FormState` (field errors, a message, and the submitted values so inputs keep them).
 
 Logging in stores the API's token in an HttpOnly `session` cookie (`src/lib/session.ts`), and

@@ -11,10 +11,16 @@ import {
   activeFilterLabels,
   DEFAULT_PAGE_SIZE,
   type DashboardQuery,
+  salarySortNeedsCountry,
 } from "@/lib/dashboard-query";
 import { countryName } from "@/lib/format";
 
 type Props = { query: DashboardQuery; options: FilterOptions };
+
+const SALARY_SORT_HINT =
+  "Salaries are in local currency, so salary sorting needs a country.";
+const SALARY_SORT_NEEDS_COUNTRY =
+  "Choose a country to sort by salary. Until then, the list is sorted by name.";
 
 /**
  * A collapsible panel around a plain GET form: filters live in the URL, so every view can be
@@ -24,10 +30,14 @@ export function FiltersForm({ query, options }: Props) {
   const countries = [...options.countries].sort((a, b) =>
     countryName(a.code).localeCompare(countryName(b.code)),
   );
+  const needsCountry = salarySortNeedsCountry(query);
   return (
     <details className="group rounded-xl border bg-card text-card-foreground shadow-xs transition-all hover:border-foreground/20 hover:shadow-md open:shadow-md motion-reduce:transition-none">
       <FiltersSummary activeFilters={activeFilterLabels(query)} />
+      {/* Rebuilt whenever the applied filters change (Apply, Reset, back and forward), so the
+          fields show what the list uses rather than edits that were never applied. */}
       <Form
+        key={JSON.stringify(query)}
         action="/"
         aria-label="Filters"
         className="grid animate-in gap-4 border-t p-4 duration-200 fade-in slide-in-from-top-1 sm:grid-cols-2 lg:grid-cols-4"
@@ -85,7 +95,8 @@ export function FiltersForm({ query, options }: Props) {
           label="Sort by"
           name="sort_by"
           defaultValue={query.sort_by}
-          description="Salaries are in local currency, so salary sorting needs a country."
+          description={needsCountry ? undefined : SALARY_SORT_HINT}
+          error={needsCountry ? SALARY_SORT_NEEDS_COUNTRY : undefined}
         >
           <NativeSelectOption value="name">Name</NativeSelectOption>
           <NativeSelectOption value="monthly_salary">

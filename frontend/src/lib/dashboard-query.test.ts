@@ -4,7 +4,9 @@ import {
   activeFilterLabels,
   type DashboardQuery,
   dashboardHref,
+  employeeListQuery,
   parseDashboardQuery,
+  salarySortNeedsCountry,
   type SearchParams,
 } from "./dashboard-query";
 
@@ -85,16 +87,48 @@ describe("parseDashboardQuery", () => {
     expect(parseDashboardQuery(params, ALLOWED)).toEqual(DEFAULTS);
   });
 
-  it("only sorts by salary within a country", () => {
+  it("keeps a salary sort without a country, so the form shows what was asked for", () => {
     const query = parseDashboardQuery({ sort_by: "monthly_salary" }, ALLOWED);
 
-    expect(query.sort_by).toBe("name");
+    expect(query.sort_by).toBe("monthly_salary");
   });
 
   it("takes the first value of a repeated parameter", () => {
     const query = parseDashboardQuery({ country: ["GB", "DE"] }, ALLOWED);
 
     expect(query.country).toBe("GB");
+  });
+});
+
+describe("salarySortNeedsCountry", () => {
+  it.each<[string, boolean, Partial<DashboardQuery>]>([
+    ["salary without a country", true, { sort_by: "monthly_salary" }],
+    [
+      "salary within a country",
+      false,
+      { sort_by: "monthly_salary", country: "DE" },
+    ],
+    ["name without a country", false, { sort_by: "name" }],
+  ])("%s → %s", (_, expected, sort) => {
+    expect(salarySortNeedsCountry({ ...DEFAULTS, ...sort })).toBe(expected);
+  });
+});
+
+describe("employeeListQuery", () => {
+  it("sorts by name when salary sorting has no country", () => {
+    const query: DashboardQuery = { ...DEFAULTS, sort_by: "monthly_salary" };
+
+    expect(employeeListQuery(query)).toEqual(DEFAULTS);
+  });
+
+  it("sorts by salary within a country", () => {
+    const query: DashboardQuery = {
+      ...DEFAULTS,
+      country: "DE",
+      sort_by: "monthly_salary",
+    };
+
+    expect(employeeListQuery(query)).toEqual(query);
   });
 });
 

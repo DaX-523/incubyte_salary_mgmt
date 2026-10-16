@@ -7,7 +7,7 @@ import {
   getPayrollStatus,
   listEmployeesForMonth,
 } from "@/lib/api";
-import { parseDashboardQuery } from "@/lib/dashboard-query";
+import { employeeListQuery, parseDashboardQuery } from "@/lib/dashboard-query";
 import { formatMonth } from "@/lib/format";
 import { currentMonth } from "@/lib/month";
 
@@ -27,7 +27,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
       country: query.country,
       job_title: query.job_title,
     }),
-    listEmployeesForMonth(query),
+    listEmployeesForMonth(employeeListQuery(query)),
   ]);
   return (
     <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:px-8">

@@ -42,20 +42,28 @@ export function parseDashboardQuery(
   allowed: Allowed,
 ): DashboardQuery {
   const month = firstParam(params.month);
-  const country = oneOf(firstParam(params.country), allowed.countries);
-  const sortBy = oneOf(firstParam(params.sort_by), SORT_FIELDS) ?? "name";
   return {
     month: month && MONTH_PATTERN.test(month) ? month : allowed.month,
     name: limitedText(firstParam(params.name), MAX_NAME_LENGTH),
     email: limitedText(firstParam(params.email), MAX_EMAIL_LENGTH),
-    country,
+    country: oneOf(firstParam(params.country), allowed.countries),
     job_title: oneOf(firstParam(params.job_title), allowed.jobTitles),
-    // Salaries are in local currencies, so they are only sorted within one country.
-    sort_by: sortBy === "monthly_salary" && !country ? "name" : sortBy,
+    // Kept even without a country, so the form shows what was asked for; see employeeListQuery.
+    sort_by: oneOf(firstParam(params.sort_by), SORT_FIELDS) ?? "name",
     sort_order: oneOf(firstParam(params.sort_order), SORT_ORDERS) ?? "asc",
     page: positiveInteger(firstParam(params.page)) ?? 1,
     page_size: parsePageSize(firstParam(params.page_size)),
   };
+}
+
+/** Salaries are in local currencies, so they are only sorted within one country. */
+export function salarySortNeedsCountry(query: DashboardQuery): boolean {
+  return query.sort_by === "monthly_salary" && !query.country;
+}
+
+/** What the employee list can show for `query`: by name until a salary sort has a country. */
+export function employeeListQuery(query: DashboardQuery): DashboardQuery {
+  return salarySortNeedsCountry(query) ? { ...query, sort_by: "name" } : query;
 }
 
 /** One of the offered page sizes, or the default. */
