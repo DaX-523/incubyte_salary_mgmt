@@ -17,18 +17,25 @@ Monorepo with a Next.js frontend and a FastAPI backend.
 ## Getting started
 
 ```sh
-cp backend/.env.example backend/.env   # then set DATABASE_URL
+cp backend/.env.example backend/.env   # then set DATABASE_URL and JWT_SECRET (openssl rand -hex 32)
 make install
 make dev-backend    # http://localhost:8000 (API docs at /docs); applies migrations on startup
-make seed           # 10k demo employees with 12 months of payroll history
+make seed           # 10k demo employees with 12 months of payroll history, plus the demo login
 make dev-frontend   # http://localhost:3000
 ```
+
+`make seed` prints the demo login (`hr@acme.example`) with a newly generated password, once; it is
+stored only as a hash. To get a new password without touching other data, run
+`make seed args="--demo-login-only"`.
 
 The frontend calls the API at `API_BASE_URL`, which defaults to `http://localhost:8000`. To point
 it elsewhere, copy `frontend/.env.example` to `frontend/.env.local`.
 
 ## What it does
 
+- **Login**: HR users log in with email and password. Each user belongs to an organization (the
+  demo data is ACME) and only ever sees that organization's employees and payrolls. Logging out
+  ends every session of that user.
 - **Dashboard** (`/`): one month's payroll, defaulting to the current month. It shows a chart of
   paid vs total employees, then a collapsible filters panel (name, email, country, job title) and
   the employee list, 25, 50 or 100 rows per page. Salary sorting is available once a country is

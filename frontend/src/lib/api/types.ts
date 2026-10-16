@@ -107,3 +107,12 @@ export type FilterOptions = {
   job_titles: JobTitleOption[];
   payment_methods: PaymentMethod[];
 };
+
+export type LoginToken = {
+  access_token: string;
+  token_type: "bearer";
+  /** ISO 8601 date-time, for example "2026-10-16T17:00:00Z". */
+  expires_at: string;
+};
+
+export type Profile = { name: string; email: string; organization: string };

@@ -1,10 +1,8 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
-// The app name links to the dashboard, so it needs no separate link.
-const LINKS = [
-  { href: "/insights", label: "Pay by job title" },
-  { href: "/employees/new", label: "Add employee" },
-];
+import { AccountNav } from "@/components/account-nav";
+import { AccountNavBoundary } from "@/components/account-nav-boundary";
 
 export function SiteHeader() {
   return (
@@ -14,20 +12,14 @@ export function SiteHeader() {
         className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-8"
       >
         <Link href="/" className="font-semibold">
-          ACME Salary Management portal
+          Salary Management
         </Link>
-        <ul className="flex flex-wrap gap-4 text-sm">
-          {LINKS.map((link) => (
-            <li key={link.href}>
-              <Link
-                href={link.href}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                {link.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
+        {/* Streams in with the session, so the rest of the page doesn't wait for it. */}
+        <AccountNavBoundary>
+          <Suspense fallback={null}>
+            <AccountNav />
+          </Suspense>
+        </AccountNavBoundary>
       </nav>
     </header>
   );

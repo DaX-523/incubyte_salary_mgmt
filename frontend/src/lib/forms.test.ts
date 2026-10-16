@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { describe, expect, it } from "vitest";
 
 import { ApiError } from "@/lib/api/client";
@@ -6,6 +7,7 @@ import {
   apiErrorState,
   employeeCreateSchema,
   employeeUpdateSchema,
+  loginSchema,
   parseForm,
   payrollCreateSchema,
   payrollUpdateSchema,
@@ -17,6 +19,15 @@ function formData(values: Record<string, string>): FormData {
     data.set(key, value);
   }
   return data;
+}
+
+function thrownBy(action: () => void): unknown {
+  try {
+    action();
+  } catch (error) {
+    return error;
+  }
+  throw new Error("Expected the action to throw");
 }
 
 const EMPLOYEE = {
@@ -172,6 +183,34 @@ describe("payroll schemas", () => {
   });
 });
 
+describe("login schema", () => {
+  it("accepts an email and password, trimming the email only", () => {
+    const result = parseForm(
+      loginSchema,
+      formData({ email: " hr@acme.example ", password: " secret " }),
+    );
+
+    expect(result).toMatchObject({
+      success: true,
+      data: { email: "hr@acme.example", password: " secret " },
+    });
+  });
+
+  it.each([
+    ["email", { email: "  ", password: "secret" }, "Enter your email"],
+    [
+      "password",
+      { email: "hr@acme.example", password: "" },
+      "Enter your password",
+    ],
+  ])("asks for a missing %s", (field, values, message) => {
+    expect(parseForm(loginSchema, formData(values))).toMatchObject({
+      success: false,
+      state: { fieldErrors: { [field]: message } },
+    });
+  });
+});
+
 describe("apiErrorState", () => {
   const values = { email: "grace@example.com" };
 
@@ -226,5 +265,11 @@ describe("apiErrorState", () => {
 
   it("rethrows things that are not errors", () => {
     expect(() => apiErrorState("boom", values)).toThrow("boom");
+  });
+
+  it("lets a Next.js redirect through, such as to the login page", () => {
+    const redirectError = thrownBy(() => redirect("/login"));
+
+    expect(() => apiErrorState(redirectError, values)).toThrow(redirectError);
   });
 });

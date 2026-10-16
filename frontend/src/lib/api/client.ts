@@ -33,19 +33,23 @@ export function buildUrl(
   return url.toString();
 }
 
+export type RequestOptions = {
+  query?: Record<string, QueryValue>;
+  body?: unknown;
+  /** The logged-in user's token, sent as `Authorization: Bearer <token>`. */
+  token?: string;
+};
+
 export async function request<Result>(
   method: "GET" | "POST" | "PATCH" | "DELETE",
   path: string,
-  options: { query?: Record<string, QueryValue>; body?: unknown } = {},
+  options: RequestOptions = {},
 ): Promise<Result> {
   let response: Response;
   try {
     response = await fetch(buildUrl(path, options.query), {
       method,
-      headers:
-        options.body === undefined
-          ? undefined
-          : { "Content-Type": "application/json" },
+      headers: requestHeaders(options),
       body:
         options.body === undefined ? undefined : JSON.stringify(options.body),
     });
@@ -59,6 +63,17 @@ export async function request<Result>(
     return undefined as Result;
   }
   return (await response.json()) as Result;
+}
+
+function requestHeaders({ body, token }: RequestOptions) {
+  const headers: Record<string, string> = {};
+  if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
+  if (token !== undefined) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
 }
 
 async function toApiError(response: Response): Promise<ApiError> {

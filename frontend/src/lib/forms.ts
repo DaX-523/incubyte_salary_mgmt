@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 
 import { ApiError } from "@/lib/api/client";
@@ -51,6 +52,17 @@ export const employeeUpdateSchema = employeeCreateSchema.omit({
   country: true,
 });
 
+// Only checked for presence: the API decides whether the credentials are right.
+export const loginSchema = z.object({
+  email: z
+    .string({ error: "Enter your email" })
+    .trim()
+    .min(1, "Enter your email"),
+  password: z
+    .string({ error: "Enter your password" })
+    .min(1, "Enter your password"),
+});
+
 export const payrollUpdateSchema = z.object({
   base: money("Base pay"),
   bonus: money("Bonus"),
@@ -94,6 +106,8 @@ export function apiErrorState(
   values: Record<string, string>,
   conflictField?: string,
 ): FormState {
+  // Next.js redirects (for example to the login page) are thrown errors that must pass through.
+  unstable_rethrow(error);
   if (error instanceof ApiError) {
     if (error.status === 409 && conflictField) {
       return {

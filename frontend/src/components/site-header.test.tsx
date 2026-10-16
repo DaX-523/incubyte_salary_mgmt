@@ -1,24 +1,21 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { SiteHeader } from "./site-header";
 
+// The account part loads the session on the server; it has its own tests.
+vi.mock("@/components/account-nav", () => ({
+  AccountNav: () => <p>Account</p>,
+}));
+
 describe("SiteHeader", () => {
-  it("links to every section of the app, with the app name leading home", () => {
+  it("leads home from the app name and holds the account navigation", () => {
     render(<SiteHeader />);
 
     const nav = within(screen.getByRole("navigation", { name: "Main" }));
     expect(
       nav.getByRole("link", { name: "Salary Management" }),
     ).toHaveAttribute("href", "/");
-    expect(nav.getByRole("link", { name: "Pay by job title" })).toHaveAttribute(
-      "href",
-      "/insights",
-    );
-    expect(nav.getByRole("link", { name: "Add employee" })).toHaveAttribute(
-      "href",
-      "/employees/new",
-    );
-    expect(nav.getAllByRole("link")).toHaveLength(3);
+    expect(nav.getByText("Account")).toBeInTheDocument();
   });
 });

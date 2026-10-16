@@ -59,9 +59,16 @@ insights use GET forms (`next/form`) and `parseDashboardQuery` turns search para
 query, dropping anything invalid. Mutations are server actions used with `useActionState`; they
 return a `FormState` (field errors, a message, and the submitted values so inputs keep them).
 
+Logging in stores the API's token in an HttpOnly `session` cookie (`src/lib/session.ts`), and
+`@/lib/api` sends it as a bearer token on every data call. `src/proxy.ts` only redirects visitors
+without the cookie to `/login`; the API checks the token itself, and a 401 from a data call
+redirects to `/login` (server actions let that redirect through via `apiErrorState`). The header's
+account part (`AccountNav`) streams in behind `<Suspense>` and an error boundary, so a failing API
+never breaks the header.
+
 Data is fetched fresh on every request, so an edit shows up at once and there is nothing to
-invalidate. The one exception is the filter catalog: `getFilterOptions` is cached for an hour with
-`"use cache"`, behind `connection()` so `next build` never calls the API. Cache other data only
+invalidate. The one exception is the filter catalog: it is public (no token), and `getFilterOptions` caches
+it for an hour with `"use cache"`, behind `connection()` so `next build` never calls the API. Cache other data only
 with a `cacheTag` that the server actions changing it update.
 
 ## Writing code

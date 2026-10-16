@@ -76,6 +76,17 @@ describe("request", () => {
     );
   });
 
+  it("sends the user's token as a bearer token", async () => {
+    const fetchMock = respondWith(200, {});
+
+    await request("GET", "/auth/me", { token: "abc" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/api/v1/auth/me",
+      { method: "GET", headers: { Authorization: "Bearer abc" } },
+    );
+  });
+
   it("returns nothing for 204 No Content", async () => {
     respondWith(204);
 
