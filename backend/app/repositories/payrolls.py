@@ -1,9 +1,10 @@
 from typing import Protocol
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.db.models import Payroll
+from app.db.models import Employee, Payroll
 from app.domain.errors import DuplicatePayrollError
 from app.repositories.errors import violates_unique_constraint
 
@@ -17,11 +18,19 @@ class PayrollRepository(Protocol):
 
 
 class SqlPayrollRepository:
-    def __init__(self, session: Session) -> None:
+    """Reads only the payrolls of one organization's employees. New payrolls are added for an
+    employee already loaded through that organization's employee repository."""
+
+    def __init__(self, session: Session, organization_id: int) -> None:
         self._session = session
+        self._organization_id = organization_id
 
     def get(self, payroll_id: int) -> Payroll | None:
-        return self._session.get(Payroll, payroll_id)
+        return self._session.scalar(
+            select(Payroll)
+            .join(Employee, Employee.id == Payroll.employee_id)
+            .where(Payroll.id == payroll_id, Employee.organization_id == self._organization_id)
+        )
 
     def add(self, payroll: Payroll) -> Payroll:
         self._session.add(payroll)

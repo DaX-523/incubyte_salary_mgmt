@@ -7,22 +7,38 @@ from sqlalchemy import Engine, inspect, text
 from sqlalchemy.exc import DataError, IntegrityError
 
 from app.db.migrate import alembic_config, run_migrations
+from tests.fakes import ORGANIZATION_ID
 
+INSERT_ORGANIZATION = text("INSERT INTO organizations (name) VALUES (:name) RETURNING id")
 INSERT_EMPLOYEE = text(
-    "INSERT INTO employees (name, email, monthly_salary, country, department, job_title) "
-    "VALUES (:name, :email, :monthly_salary, :country, :department, :job_title) RETURNING id"
+    "INSERT INTO employees "
+    "(organization_id, name, email, monthly_salary, country, department, job_title) VALUES "
+    "(:organization_id, :name, :email, :monthly_salary, :country, :department, :job_title) "
+    "RETURNING id"
+)
+INSERT_USER = text(
+    "INSERT INTO users (organization_id, email, name, password_hash, session_version) "
+    "VALUES (:organization_id, :email, :name, :password_hash, :session_version)"
 )
 INSERT_PAYROLL = text(
     "INSERT INTO payrolls (employee_id, month, base, currency, payment_method) "
     "VALUES (:employee_id, :month, :base, :currency, :payment_method)"
 )
 VALID_EMPLOYEE = {
+    "organization_id": ORGANIZATION_ID,
     "name": "Ada Lovelace",
     "email": "ada@example.com",
     "monthly_salary": "5000.00",
     "country": "GB",
     "department": "Engineering",
     "job_title": "Software Engineer",
+}
+VALID_USER = {
+    "organization_id": ORGANIZATION_ID,
+    "email": "hr@acme.example",
+    "name": "ACME HR",
+    "password_hash": "$argon2id$not-a-real-hash",
+    "session_version": 1,
 }
 VALID_PAYROLL = {
     "month": "2026-10-01",
@@ -45,7 +61,13 @@ def test_migrations_downgrade_and_upgrade_cleanly(
     tables_after_upgrade = set(inspect(migrated_engine).get_table_names())
 
     assert tables_after_downgrade == {"alembic_version"}
-    assert tables_after_upgrade == {"alembic_version", "employees", "payrolls"}
+    assert tables_after_upgrade == {
+        "alembic_version",
+        "organizations",
+        "users",
+        "employees",
+        "payrolls",
+    }
 
 
 def test_running_migrations_again_is_a_no_op(migrated_engine: Engine, database_url: str) -> None:
@@ -53,7 +75,7 @@ def test_running_migrations_again_is_a_no_op(migrated_engine: Engine, database_u
 
     with migrated_engine.connect() as connection:
         version = connection.scalar(text("SELECT version_num FROM alembic_version"))
-    assert version == "0002"
+    assert version == "0003"
 
 
 def test_accepts_a_valid_employee_and_payroll(engine: Engine) -> None:
@@ -72,8 +94,17 @@ def test_accepts_a_valid_employee_and_payroll(engine: Engine) -> None:
         ({"country": "gb"}, IntegrityError),
         ({"country": "GBR"}, DataError),
         ({"job_title": None}, IntegrityError),
+        ({"organization_id": None}, IntegrityError),
+        ({"organization_id": 999_999}, IntegrityError),
     ],
-    ids=["negative-salary", "lowercase-country", "three-letter-country", "missing-job-title"],
+    ids=[
+        "negative-salary",
+        "lowercase-country",
+        "three-letter-country",
+        "missing-job-title",
+        "missing-organization",
+        "unknown-organization",
+    ],
 )
 def test_rejects_invalid_employees(
     engine: Engine, overrides: dict[str, Any], error: type[Exception]
@@ -82,12 +113,64 @@ def test_rejects_invalid_employees(
         connection.execute(INSERT_EMPLOYEE, {**VALID_EMPLOYEE, **overrides})
 
 
-def test_rejects_duplicate_email(engine: Engine) -> None:
+def test_rejects_a_duplicate_email_within_an_organization(engine: Engine) -> None:
     with engine.begin() as connection:
         connection.execute(INSERT_EMPLOYEE, VALID_EMPLOYEE)
 
-    with pytest.raises(IntegrityError), engine.begin() as connection:
+    with (
+        pytest.raises(IntegrityError, match="uq_employees_organization_id_email"),
+        engine.begin() as connection,
+    ):
         connection.execute(INSERT_EMPLOYEE, VALID_EMPLOYEE)
+
+
+def test_accepts_the_same_employee_email_in_another_organization(engine: Engine) -> None:
+    with engine.begin() as connection:
+        other_organization_id = connection.scalar(INSERT_ORGANIZATION, {"name": "Globex"})
+        connection.execute(INSERT_EMPLOYEE, VALID_EMPLOYEE)
+
+        connection.execute(
+            INSERT_EMPLOYEE, {**VALID_EMPLOYEE, "organization_id": other_organization_id}
+        )
+
+        count = connection.scalar(text("SELECT count(*) FROM employees"))
+    assert count == 2
+
+
+def test_accepts_a_valid_user(engine: Engine) -> None:
+    with engine.begin() as connection:
+        connection.execute(INSERT_USER, VALID_USER)
+
+        count = connection.scalar(text("SELECT count(*) FROM users"))
+    assert count == 1
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"session_version": 0},
+        {"organization_id": 999_999},
+        {"organization_id": None},
+        {"password_hash": None},
+    ],
+    ids=["session-version-zero", "unknown-organization", "no-organization", "no-password"],
+)
+def test_rejects_invalid_users(engine: Engine, overrides: dict[str, Any]) -> None:
+    with pytest.raises(IntegrityError), engine.begin() as connection:
+        connection.execute(INSERT_USER, {**VALID_USER, **overrides})
+
+
+def test_rejects_a_second_user_with_the_same_email(engine: Engine) -> None:
+    with engine.begin() as connection:
+        connection.execute(INSERT_USER, VALID_USER)
+
+    with pytest.raises(IntegrityError, match="uq_users_email"), engine.begin() as connection:
+        connection.execute(INSERT_USER, VALID_USER)
+
+
+def test_rejects_a_duplicate_organization_name(engine: Engine) -> None:
+    with pytest.raises(IntegrityError, match="uq_organizations_name"), engine.begin() as c:
+        c.execute(INSERT_ORGANIZATION, {"name": "Test organization"})
 
 
 @pytest.mark.parametrize(
@@ -191,3 +274,42 @@ def test_downgrade_from_0002_recomputes_last_transaction(engine: Engine, databas
     command.upgrade(config, "head")
 
     assert last_transaction_at == datetime(2026, 10, 14, 9, 0, tzinfo=UTC)
+
+
+def test_upgrade_to_0003_moves_existing_employees_into_acme(
+    engine: Engine, database_url: str
+) -> None:
+    config = alembic_config(database_url)
+    command.downgrade(config, "0002")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO employees (name, email, monthly_salary, country, department, "
+                "job_title) VALUES ('Ada Lovelace', 'ada@example.com', 5000, 'GB', "
+                "'Engineering', 'Software Engineer')"
+            )
+        )
+
+    command.upgrade(config, "head")
+
+    with engine.connect() as connection:
+        organization = connection.scalar(
+            text(
+                "SELECT organizations.name FROM employees "
+                "JOIN organizations ON organizations.id = employees.organization_id"
+            )
+        )
+    assert organization == "ACME"
+
+
+def test_upgrade_to_0003_creates_no_organization_for_an_empty_database(
+    engine: Engine, database_url: str
+) -> None:
+    config = alembic_config(database_url)
+    command.downgrade(config, "0002")
+
+    command.upgrade(config, "head")
+
+    with engine.connect() as connection:
+        count = connection.scalar(text("SELECT count(*) FROM organizations"))
+    assert count == 0

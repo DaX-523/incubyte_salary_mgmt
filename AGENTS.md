@@ -20,15 +20,15 @@ make dev-backend   # API on http://localhost:8000 (OpenAPI docs at /docs)
 make dev-frontend  # web app on http://localhost:3000
 make migrate       # apply pending DB migrations (the API also runs them on startup)
 make migration name="add x"  # generate a migration from model changes
-make seed          # 10k demo employees + payroll history (args="--reset" to replace)
+make seed          # 10k demo employees + payroll history + demo login (args="--reset" to replace)
 make test          # all tests, fast feedback
 make format        # auto-format and auto-fix lint in both apps
 make check         # lint + format + types + tests with coverage gate, both apps
 ```
 
 The frontend needs Node 24 (`nvm use 24`); uv manages Python for the backend. The backend reads
-`DATABASE_URL` from `backend/.env` (see `backend/.env.example`); the frontend reads `API_BASE_URL`
-(default `http://localhost:8000`). Tests use a separate database,
+`DATABASE_URL` and `JWT_SECRET` from `backend/.env` (see `backend/.env.example`); the frontend
+reads `API_BASE_URL` (default `http://localhost:8000`). Tests use a separate database,
 `TEST_DATABASE_URL` (default `postgresql://localhost:5432/salary_mgmt_test`), which they wipe.
 
 ## Engineering standards

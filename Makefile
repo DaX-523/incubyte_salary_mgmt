@@ -27,7 +27,7 @@ migration: ## Generate a migration from model changes: make migration name="add 
 	@test -n "$(name)" || { echo 'Usage: make migration name="describe the change"'; exit 1; }
 	cd backend && uv run alembic revision --autogenerate -m "$(name)"
 
-seed: ## Seed 10k demo employees + payroll history (args="--reset" replaces existing data)
+seed: ## Seed 10k demo employees, payroll history and the demo login (args="--reset" replaces data)
 	cd backend && uv run python -m app.seed $(args)
 
 test: require-node ## Run all tests (no coverage, fast feedback)

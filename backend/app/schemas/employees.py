@@ -2,10 +2,8 @@ from enum import StrEnum
 from typing import Annotated, Self
 
 from pydantic import (
-    AfterValidator,
     BaseModel,
     ConfigDict,
-    EmailStr,
     StringConstraints,
     model_validator,
 )
@@ -15,6 +13,7 @@ from app.domain.catalog import CURRENCY_BY_COUNTRY
 from app.schemas.common import (
     DEFAULT_PAGE_SIZE,
     CountryCode,
+    Email,
     EmployeeName,
     JobTitleName,
     Money,
@@ -25,8 +24,6 @@ from app.schemas.common import (
 )
 from app.schemas.payrolls import PayrollOut
 
-# Emails are unique per employee regardless of letter case.
-Email = Annotated[EmailStr, AfterValidator(str.lower)]
 # Any part of an email address, matched ignoring case like the name search.
 EmailSearch = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=320)]
 

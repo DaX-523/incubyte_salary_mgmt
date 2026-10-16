@@ -11,7 +11,7 @@ from app.db.models import Employee
 from app.domain.errors import DuplicateEmailError
 from app.repositories.employees import SqlEmployeeRepository
 from app.schemas.employees import EmployeeSortField, MonthlyEmployeeQuery, SortOrder
-from tests.fakes import make_employee, make_payroll
+from tests.fakes import ORGANIZATION_ID, make_employee, make_payroll
 
 OCTOBER = date(2026, 10, 1)
 JOINED_LAST_YEAR = datetime(2025, 1, 1, 9, 0, tzinfo=UTC)
@@ -27,14 +27,14 @@ def add_employee(session: Session, **overrides: Any) -> Employee:
 
 
 def ids_for(session: Session, **query: Any) -> list[int]:
-    result = SqlEmployeeRepository(session).list_for_month(
+    result = SqlEmployeeRepository(session, ORGANIZATION_ID).list_for_month(
         MonthlyEmployeeQuery(month=query.pop("month", OCTOBER), **query)
     )
     return [employee.id for employee, _ in result.rows]
 
 
 def test_add_returns_the_stored_employee_with_its_id_and_timestamps(session: Session) -> None:
-    repository = SqlEmployeeRepository(session)
+    repository = SqlEmployeeRepository(session, ORGANIZATION_ID)
 
     employee = repository.add(make_employee())
 
@@ -44,7 +44,7 @@ def test_add_returns_the_stored_employee_with_its_id_and_timestamps(session: Ses
 
 
 def test_add_rejects_a_duplicate_email_and_keeps_the_session_usable(session: Session) -> None:
-    repository = SqlEmployeeRepository(session)
+    repository = SqlEmployeeRepository(session, ORGANIZATION_ID)
     repository.add(make_employee())
 
     with pytest.raises(DuplicateEmailError):
@@ -54,7 +54,7 @@ def test_add_rejects_a_duplicate_email_and_keeps_the_session_usable(session: Ses
 
 
 def test_save_rejects_taking_another_employee_email(session: Session) -> None:
-    repository = SqlEmployeeRepository(session)
+    repository = SqlEmployeeRepository(session, ORGANIZATION_ID)
     repository.add(make_employee())
     alan = repository.add(make_employee(email="alan@example.com"))
 
@@ -65,11 +65,11 @@ def test_save_rejects_taking_another_employee_email(session: Session) -> None:
 
 def test_add_lets_other_constraint_violations_through(session: Session) -> None:
     with pytest.raises(IntegrityError, match="ck_employees_country_iso_alpha2"):
-        SqlEmployeeRepository(session).add(make_employee(country="gb"))
+        SqlEmployeeRepository(session, ORGANIZATION_ID).add(make_employee(country="gb"))
 
 
 def test_save_persists_changes(session: Session) -> None:
-    repository = SqlEmployeeRepository(session)
+    repository = SqlEmployeeRepository(session, ORGANIZATION_ID)
     employee = repository.add(make_employee())
 
     employee.monthly_salary = Decimal("6100.00")
@@ -80,7 +80,7 @@ def test_save_persists_changes(session: Session) -> None:
 
 
 def test_get_returns_none_for_an_unknown_id(session: Session) -> None:
-    assert SqlEmployeeRepository(session).get(404) is None
+    assert SqlEmployeeRepository(session, ORGANIZATION_ID).get(404) is None
 
 
 def test_list_pairs_each_employee_with_only_that_month_payroll(session: Session) -> None:
@@ -94,7 +94,9 @@ def test_list_pairs_each_employee_with_only_that_month_payroll(session: Session)
     )
     session.commit()
 
-    result = SqlEmployeeRepository(session).list_for_month(MonthlyEmployeeQuery(month=OCTOBER))
+    result = SqlEmployeeRepository(session, ORGANIZATION_ID).list_for_month(
+        MonthlyEmployeeQuery(month=OCTOBER)
+    )
 
     names_and_bonuses = [
         (employee.name, payroll and payroll.bonus) for employee, payroll in result.rows
@@ -154,7 +156,7 @@ def test_list_filters(session: Session, query: dict[str, Any], expected_names: l
     )
     add_employee(session, name="100% Grace", country="US")
 
-    result = SqlEmployeeRepository(session).list_for_month(
+    result = SqlEmployeeRepository(session, ORGANIZATION_ID).list_for_month(
         MonthlyEmployeeQuery(month=OCTOBER, **query)
     )
 
@@ -186,7 +188,7 @@ def test_list_sorts_and_breaks_ties_by_id(
 def test_list_pages_through_all_matches(session: Session) -> None:
     for number in range(1, 6):
         add_employee(session, name=f"employee-{number}")
-    repository = SqlEmployeeRepository(session)
+    repository = SqlEmployeeRepository(session, ORGANIZATION_ID)
 
     pages = [
         repository.list_for_month(MonthlyEmployeeQuery(month=OCTOBER, page=page, page_size=2))

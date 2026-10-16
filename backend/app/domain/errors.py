@@ -39,3 +39,25 @@ class DuplicatePayrollError(ConflictError):
 class InactiveEmployeeError(ConflictError):
     def __init__(self, employee_id: int) -> None:
         super().__init__(f"Employee {employee_id} is inactive, so no new payrolls can be added")
+
+
+class AuthenticationError(DomainError):
+    """The caller could not be identified; the API answers 401."""
+
+
+class InvalidCredentialsError(AuthenticationError):
+    def __init__(self) -> None:
+        # The same message for an unknown email and a wrong password, so it reveals neither.
+        super().__init__("Email or password is incorrect")
+
+
+class NotAuthenticatedError(AuthenticationError):
+    def __init__(self) -> None:
+        super().__init__("Log in to continue")
+
+
+class SessionEndedError(AuthenticationError):
+    """The token is invalid, expired, or from before the user last logged out."""
+
+    def __init__(self) -> None:
+        super().__init__("Your session has ended; log in again")

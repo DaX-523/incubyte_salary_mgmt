@@ -1,14 +1,7 @@
 """End-to-end through HTTP, the real repositories and Postgres: proves the wiring, not the rules."""
 
-from collections.abc import Iterator
-
-import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine
-
-from app.core.config import Settings
-from app.main import create_app
 
 NEW_EMPLOYEE = {
     "name": "Grace Hopper",
@@ -17,14 +10,6 @@ NEW_EMPLOYEE = {
     "country": "US",
     "job_title": "Engineering Manager",
 }
-
-
-@pytest.fixture
-def db_client(engine: Engine, database_url: str) -> Iterator[TestClient]:
-    # The session fixture already migrated the database.
-    app = create_app(Settings(_env_file=None, database_url=database_url), migrate=lambda _: None)
-    with TestClient(app) as client:
-        yield client
 
 
 def test_an_employee_can_be_hired_paid_and_deactivated(db_client: TestClient) -> None:
@@ -76,3 +61,33 @@ def test_payroll_and_employee_edits_are_saved(db_client: TestClient) -> None:
         ][0]["job_title"]
         == "Legal Counsel"
     )
+
+
+def test_a_raise_leaves_earlier_payrolls_unchanged(db_client: TestClient) -> None:
+    employee = db_client.post("/api/v1/employees", json=NEW_EMPLOYEE).json()
+    payroll = db_client.post(
+        f"/api/v1/employees/{employee['id']}/payrolls",
+        json={"month": "2026-10", "base": "7000", "payment_method": "bank_transfer"},
+    ).json()
+
+    db_client.patch(f"/api/v1/employees/{employee['id']}", json={"monthly_salary": "7700"})
+
+    assert db_client.get(f"/api/v1/employees/{employee['id']}").json()["monthly_salary"] == (
+        "7700.00"
+    )
+    assert db_client.get(f"/api/v1/payrolls/{payroll['id']}").json()["base"] == "7000.00"
+
+
+def test_logging_out_ends_the_session(db_client: TestClient) -> None:
+    profile = db_client.get("/api/v1/auth/me")
+
+    logout = db_client.post("/api/v1/auth/logout")
+    after_logout = db_client.get("/api/v1/employees", params={"month": "2026-10"})
+
+    assert profile.json() == {
+        "name": "ACME HR",
+        "email": "hr@acme.example",
+        "organization": "Test organization",
+    }
+    assert logout.status_code == status.HTTP_204_NO_CONTENT
+    assert after_logout.status_code == status.HTTP_401_UNAUTHORIZED

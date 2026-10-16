@@ -14,7 +14,7 @@ uv sync                                  # install dependencies
 uv run fastapi dev                       # http://localhost:8000, docs at /docs; migrates on startup
 uv run alembic upgrade head              # apply migrations without starting the API
 uv run alembic revision --autogenerate -m "add x to y"   # new migration from model changes
-uv run python -m app.seed [--reset]      # 10k employees + 12 months of payrolls (see --help)
+uv run python -m app.seed [--reset]      # 10k employees, 12 months of payrolls, demo login (--help)
 uv run pytest                            # tests (integration tests skip without TEST_DATABASE_URL)
 uv run pytest --cov                      # tests + 90% coverage gate
 uv run ruff check --fix . && uv run ruff format .
@@ -30,13 +30,15 @@ with `uv add <pkg>` (`uv add --dev <pkg>` for tooling); never use pip or hand-ed
 (template: `.env.example`). `DATABASE_URL` accepts plain `postgresql://` URLs; they are pointed at
 the psycopg 3 driver automatically. When `DATABASE_URL` is set, the API applies pending migrations
 on startup (serialized with a Postgres advisory lock); when unset, it starts without a database.
+`JWT_SECRET` (at least 32 characters) signs login tokens; the API refuses to start with a database
+but without it.
 
 ## Structure
 
 ```text
 app/
   main.py        create_app(): wiring only (routers under /api/v1, lifespan, error handlers)
-  core/          settings
+  core/          settings; security.py: password hashing (Argon2) and login tokens (JWT)
   domain/        catalog.py (countries → currency, job titles → department), errors.py
   api/           routers: parse request → call service → map result or error to HTTP
   schemas/       Pydantic request/response models (the API contract)
@@ -71,6 +73,8 @@ Create a directory when the first module needs it. Don't add empty layers.
   currency column and no conversion. Pay queries group or filter by `country` first (peers =
   same `country` and `job_title`), which is what the `country`, `department` and `job_title`
   indexes serve. There is no salary filter.
+- Every employee belongs to an organization (`organization_id`), and emails are unique within one.
+  Users log in to one organization. Payrolls reach their organization through the employee.
 - Store facts once. Don't add columns that can be derived from other tables (the removed
   `last_transaction_at` was the latest payroll's `created_at`).
 
@@ -88,6 +92,18 @@ Everything lives under `/api/v1` (OpenAPI docs at `/docs`). Domain errors map to
   new payrolls.
 - "On the books for a month" (`app/repositories/population.py`) is shared by the monthly list
   and the paid-vs-total insight, so the two always agree.
+
+## Authentication and organizations
+
+- `POST /auth/login` checks the email and Argon2 password hash and returns a JWT (HS256, 8 hours)
+  carrying the user id and their `session_version`. Clients send it as `Authorization: Bearer`.
+- `get_current_user` (`app/api/dependencies.py`) checks the signature and expiry against the
+  injected clock (`get_now`), then that the user still exists with the same `session_version`.
+  `POST /auth/logout` bumps the version, so every token issued before stops working.
+- Employees, payrolls and insights routers require a user (see `create_app`). `/filters` (static
+  catalog) and `/health` are public. `AuthenticationError` → 401 with `WWW-Authenticate: Bearer`.
+- Repositories are built with the user's `organization_id` and filter every query by it; another
+  organization's record is simply not found (404). Services don't know about organizations.
 
 ## Writing code
 
@@ -109,6 +125,9 @@ Everything lives under `/api/v1` (OpenAPI docs at `/docs`). Domain errors map to
 - Most tests are plain unit tests of services and pure functions: no HTTP, no database. Use the
   `client` fixture to test the API contract: status codes, response bodies, validation errors
   (422) and error mapping (404, 409, …).
+- API tests log in through fixtures: `api_client` acts as a logged-in user of `ORGANIZATION_ID`;
+  `auth_client` exercises the real login with in-memory users and the fixed clock `NOW`
+  (`tests/fakes.py`). Integration tests log in through `/auth/login` (`db_client`, `log_in`).
 - Get the app only through the `app` and `client` fixtures. They build it with explicit settings
   (no `.env`, no database), so state never leaks between tests and nothing touches real data.
 - Database behaviour (constraints, migrations, queries, repositories) is tested in

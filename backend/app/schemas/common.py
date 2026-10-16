@@ -1,4 +1,4 @@
-"""Types shared by the API contract: months, money, catalog values and pagination."""
+"""Types shared by the API contract: months, money, emails, catalog values and pagination."""
 
 import re
 from datetime import date
@@ -9,6 +9,7 @@ from pydantic import (
     AfterValidator,
     BaseModel,
     BeforeValidator,
+    EmailStr,
     Field,
     PlainSerializer,
     StringConstraints,
@@ -66,6 +67,8 @@ Month = Annotated[
 Money = Annotated[Decimal, Field(ge=0, max_digits=14, decimal_places=2), AfterValidator(to_cents)]
 CountryCode = Annotated[str, AfterValidator(ensure_known_country)]
 JobTitleName = Annotated[str, AfterValidator(ensure_known_job_title)]
+# Compared ignoring letter case, so always stored lowercase.
+Email = Annotated[EmailStr, AfterValidator(str.lower)]
 EmployeeName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
 ]

@@ -10,6 +10,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Identity,
+    Integer,
     Numeric,
     String,
     UniqueConstraint,
@@ -36,19 +37,51 @@ class TimestampMixin:
     )
 
 
+class Organization(TimestampMixin, Base):
+    """A company using the portal. Its users only ever see its own employees."""
+
+    __tablename__ = "organizations"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), unique=True)
+
+
+class User(TimestampMixin, Base):
+    """Someone who logs in to manage their organization's employees."""
+
+    __tablename__ = "users"
+    __table_args__ = (CheckConstraint("session_version >= 1", name="session_version_positive"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    organization_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("organizations.id", ondelete="RESTRICT"), index=True
+    )
+    # Stored lowercase, so logging in ignores the email's case.
+    email: Mapped[str] = mapped_column(String(320), unique=True)
+    name: Mapped[str] = mapped_column(String(200))
+    password_hash: Mapped[str] = mapped_column(String(255))
+    # Copied into every token; logging out bumps it, which invalidates all earlier tokens.
+    session_version: Mapped[int] = mapped_column(Integer, server_default="1")
+
+
 class Employee(TimestampMixin, Base):
     """An employee. `monthly_salary` is in the local currency of `country`, so salaries are only
     compared or aggregated within one country (peers: same country and job title)."""
 
     __tablename__ = "employees"
     __table_args__ = (
+        # Emails are unique within an organization; another company may employ the same person.
+        UniqueConstraint("organization_id", "email"),
         CheckConstraint("monthly_salary >= 0", name="monthly_salary_non_negative"),
         CheckConstraint("country ~ '^[A-Z]{2}$'", name="country_iso_alpha2"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    organization_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("organizations.id", ondelete="RESTRICT"), index=True
+    )
     name: Mapped[str] = mapped_column(String(200), index=True)
-    email: Mapped[str] = mapped_column(String(320), unique=True)
+    email: Mapped[str] = mapped_column(String(320))
     monthly_salary: Mapped[Decimal] = mapped_column(Money)
     country: Mapped[str] = mapped_column(String(2), index=True)
     department: Mapped[str] = mapped_column(String(100), index=True)

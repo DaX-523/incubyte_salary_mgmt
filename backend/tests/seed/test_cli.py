@@ -1,9 +1,10 @@
 import argparse
+import string
 
 import pytest
 
 from app.core.config import Settings
-from app.seed.__main__ import main, positive_int
+from app.seed.__main__ import generate_demo_password, main, positive_int
 
 
 @pytest.mark.parametrize(("value", "expected"), [("1", 1), ("10000", 10_000)])
@@ -25,3 +26,10 @@ def test_cli_exits_with_usage_error_without_database_url(
 
     assert exit_info.value.code == 2
     assert "DATABASE_URL is not set" in capsys.readouterr().err
+
+
+def test_demo_passwords_are_random_url_safe_strings() -> None:
+    password = generate_demo_password()
+
+    assert len(password) == 16
+    assert set(password) <= set(string.ascii_letters + string.digits + "-_")

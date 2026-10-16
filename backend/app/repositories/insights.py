@@ -31,15 +31,18 @@ class InsightsRepository(Protocol):
 
 
 class SqlInsightsRepository:
-    def __init__(self, session: Session) -> None:
+    """Aggregates only one organization's employees."""
+
+    def __init__(self, session: Session, organization_id: int) -> None:
         self._session = session
+        self._organization_id = organization_id
 
     def count_paid(self, month_filter: MonthFilter) -> PaidCount:
         statement = (
             select(func.count(Employee.id), func.count(Payroll.id))
             .select_from(Employee)
             .outerjoin(Payroll, payroll_for_month(month_filter.month))
-            .where(*on_the_books(month_filter))
+            .where(Employee.organization_id == self._organization_id, *on_the_books(month_filter))
         )
         total, paid = self._session.execute(statement).one()
         return PaidCount(total=total, paid=paid)
@@ -53,7 +56,11 @@ class SqlInsightsRepository:
                 func.min(Employee.monthly_salary),
                 func.max(Employee.monthly_salary),
             )
-            .where(Employee.is_active, Employee.country == country)
+            .where(
+                Employee.organization_id == self._organization_id,
+                Employee.is_active,
+                Employee.country == country,
+            )
             .group_by(Employee.job_title, Employee.department)
             .order_by(Employee.department, Employee.job_title)
         )

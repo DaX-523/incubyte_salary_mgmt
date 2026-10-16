@@ -2,11 +2,12 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 
 from anyio import to_thread
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, Depends, FastAPI
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.api import employees, filters, health, insights, payrolls
+from app.api import auth, employees, filters, health, insights, payrolls
+from app.api.dependencies import get_current_user
 from app.api.errors import register_error_handlers
 from app.core.config import Settings, get_settings
 from app.db.migrate import run_migrations
@@ -26,6 +27,10 @@ def create_app(
         if not database_url:
             yield
             return
+        if resolved_settings.jwt_secret is None:
+            raise RuntimeError(
+                "Set JWT_SECRET (at least 32 characters) to serve data; see backend/.env.example"
+            )
         await to_thread.run_sync(migrate, database_url)
         engine = create_engine(database_url, pool_pre_ping=True)
         app.state.session_factory = sessionmaker(engine)
@@ -37,11 +42,15 @@ def create_app(
 
     app = FastAPI(title="Salary Management API", lifespan=lifespan)
     app.state.session_factory = None
+    app.state.settings = resolved_settings
     register_error_handlers(app)
 
     api = APIRouter(prefix=API_PREFIX)
-    for module in (employees, payrolls, insights, filters):
-        api.include_router(module.router)
+    # Organization data needs a logged-in user. The filter catalog is static reference data.
+    for module in (employees, payrolls, insights):
+        api.include_router(module.router, dependencies=[Depends(get_current_user)])
+    api.include_router(auth.router)
+    api.include_router(filters.router)
     app.include_router(api)
     app.include_router(health.router)
     return app
