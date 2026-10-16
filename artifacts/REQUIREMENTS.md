@@ -99,3 +99,6 @@ its about time i shall add org level simple stateless auth, for simplicity going
  - organizations table, users and employees belong to one organization, another organization's records give 404
 
  - demo login is seeded within script
+
+some left out decisions
+-  user management ui and roles(role based access control), password reset, refresh tokens, limiting login attempts

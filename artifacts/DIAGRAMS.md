@@ -1,19 +1,43 @@
 # Diagrams
 
-Derived from `REQUIREMENTS.md` (up to "NEXT STEPS and frontend views planning") and the code as
-built. Deactivation stays `DELETE /employees/{id}`, which sets `is_active` to false, as line 51
-says. `init.png` adds server-side pagination.
+Derived from `REQUIREMENTS.md` (up to "org level simple stateless auth") and the code as built.
+Deactivation stays `DELETE /employees/{id}`, which sets `is_active` to false. `init.png` adds
+server-side pagination.
 
 ## Core data model
 
+Every query is limited to the logged-in user's organization. Payrolls reach their organization
+through the employee, so the fact is stored once.
+
 ```mermaid
 erDiagram
+    ORGANIZATIONS ||--o{ USERS : "has logins"
+    ORGANIZATIONS ||--o{ EMPLOYEES : "employs"
     EMPLOYEES ||--o{ PAYROLLS : "is paid through"
 
+    ORGANIZATIONS {
+        int id PK
+        string name UK "ACME"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    USERS {
+        int id PK
+        int organization_id FK "sees only this organization"
+        string email UK "lowercase; used to log in"
+        string name
+        string password_hash "Argon2id, never the password"
+        int session_version "copied into every token; logout adds 1"
+        timestamp created_at
+        timestamp updated_at
+    }
+
     EMPLOYEES {
-        int id PK "filter"
-        string name "filter"
-        string email "unique, lowercase"
+        int id PK
+        int organization_id FK
+        string name "search, sort"
+        string email "search; unique within the organization, lowercase"
         decimal monthly_salary "local currency of country; sortable within a country"
         string country "filter; fixed once set; decides the currency"
         string department "derived from job_title"
@@ -27,7 +51,7 @@ erDiagram
         int id PK
         int employee_id FK "unique with month; fixed once set"
         date month "unique with employee_id; fixed once set"
-        decimal base
+        decimal base "amount paid, so a later raise doesn't change it"
         decimal bonus
         decimal esops
         string currency "set by the server from country"
@@ -41,8 +65,14 @@ erDiagram
 
 ```mermaid
 flowchart LR
-    subgraph employees["Employees"]
-        list["GET /employees<br/>month (required), id, name, country, job_title,<br/>sort_by, sort_order, page, page_size<br/>each row: employee + that month's payroll or null"]
+    subgraph auth["Auth"]
+        login["POST /auth/login (public)<br/>email + password → JWT, 8 hours"]
+        logout["POST /auth/logout<br/>session_version + 1: every earlier token stops working"]
+        me["GET /auth/me<br/>name, email, organization"]
+    end
+
+    subgraph employees["Employees (login required)"]
+        list["GET /employees<br/>month (required), name, email, country, job_title,<br/>sort_by name or monthly_salary (needs country),<br/>sort_order, page, page_size<br/>each row: employee + that month's payroll or null"]
         create["POST /employees<br/>department and currency derived"]
         read["GET /employees/{id}"]
         update["PATCH /employees/{id}<br/>country cannot change"]
@@ -50,21 +80,51 @@ flowchart LR
         pay["POST /employees/{id}/payrolls<br/>currency from country"]
     end
 
-    subgraph payrolls["Payrolls"]
+    subgraph payrolls["Payrolls (login required)"]
         payroll["GET /payrolls/{id}"]
         correct["PATCH /payrolls/{id}<br/>amounts and method only"]
     end
 
-    subgraph insights["Insights"]
+    subgraph insights["Insights (login required)"]
         status["GET /insights/payroll-status<br/>month, country, job_title<br/>paid vs total (chart)"]
         byTitle["GET /insights/pay-by-job-title<br/>country (required)<br/>headcount, lowest, highest"]
     end
 
-    filters["GET /filters<br/>countries, job titles, payment methods"]
+    filters["GET /filters (public)<br/>countries, job titles, payment methods"]
 
-    errors["Errors: 404 not found · 409 duplicate email,<br/>duplicate month, inactive employee · 422 invalid input"]
+    errors["Errors: 401 not logged in, wrong password, session ended ·<br/>404 not found or another organization's record ·<br/>409 duplicate email, duplicate month, inactive employee · 422 invalid input"]
 
     style errors stroke-dasharray: 5 5
+```
+
+## Login and logout
+
+```mermaid
+sequenceDiagram
+    actor hr as HR user
+    participant web as Next.js server
+    participant api as FastAPI
+    participant db as PostgreSQL
+
+    hr->>web: open /insights without a session cookie
+    web-->>hr: proxy.ts redirects to /login
+    hr->>web: email + password (server action)
+    web->>api: POST /auth/login
+    api->>db: user by email
+    api->>api: check the Argon2 hash
+    api-->>web: JWT with user id, session_version, expiry in 8 hours
+    web-->>hr: session cookie (HttpOnly, SameSite=Lax, Secure), redirect to /
+    hr->>web: open / with the cookie
+    web->>api: GET /employees with Authorization Bearer token
+    api->>db: user by id, token version must equal session_version
+    api->>db: employees of the user's organization only
+    api-->>web: page of employees
+    web-->>hr: rendered dashboard
+    hr->>web: Log out
+    web->>api: POST /auth/logout
+    api->>db: session_version + 1
+    web-->>hr: cookie deleted, redirect to /login
+    note over web,api: Any 401 later (expired or old token) redirects to /login
 ```
 
 ## Requirements across the stack
@@ -74,6 +134,8 @@ flowchart LR
     hr(["HR user"])
 
     subgraph fe["Frontend (Next.js, shadcn/ui)"]
+        proxy["proxy.ts<br/>no session cookie → /login"]
+        loginPage["Login /login<br/>token kept in an HttpOnly cookie"]
         dash["Dashboard /<br/>month (default: current) + filters<br/>paid vs total chart, paginated table"]
         insightsPage["Pay by job title /insights<br/>one country at a time"]
         employeePages["/employees/new, /employees/:id<br/>add, edit, record payroll, deactivate"]
@@ -83,30 +145,38 @@ flowchart LR
     end
 
     subgraph be["Backend (FastAPI)"]
+        authCheck["Login and token check<br/>JWT signature, expiry, session_version"]
         beval["Validation (Pydantic)"]
         services["Business rules<br/>derive department and currency,<br/>no payroll for inactive employees"]
-        query["Filtering, sorting and pagination<br/>run in SQL"]
+        query["Filtering, sorting and pagination<br/>run in SQL, limited to the user's organization"]
     end
 
     subgraph data["PostgreSQL"]
+        org[("ORGANIZATIONS")]
+        users[("USERS")]
         emp[("EMPLOYEES")]
         pay[("PAYROLLS<br/>unique per employee + month")]
     end
 
-    out["Left out on purpose:<br/>authentication, dedicated cache (Redis)"]
+    out["Left out on purpose:<br/>roles and user management, password reset,<br/>refresh tokens, limiting login attempts,<br/>dedicated cache (Redis)"]
 
-    hr --> dash
+    hr --> proxy --> loginPage
+    loginPage -- "POST /auth/login" --> authCheck
+    proxy --> dash
     hr --> insightsPage
     insightsPage -- "rank a job title by salary" --> dash
     dash --> employeePages --> payrollPage
     employeePages --> feval
     payrollPage --> feval
-    dash -- "GET /api/v1 (server side)" --> beval
-    insightsPage --> beval
-    feval -- "POST, PATCH, DELETE" --> beval
-    beval --> services --> query
+    dash -- "GET /api/v1 + Bearer token (server side)" --> authCheck
+    insightsPage --> authCheck
+    feval -- "POST, PATCH, DELETE" --> authCheck
+    authCheck --> users
+    authCheck --> beval --> services --> query
     query --> emp
     query --> pay
+    org -- "1 to many" --- users
+    org -- "1 to many" --- emp
     emp -- "1 to many" --- pay
 
     style out stroke-dasharray: 5 5
