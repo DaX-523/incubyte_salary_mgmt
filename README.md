@@ -58,6 +58,47 @@ make test     # fast unit tests for both apps
 make check    # lint, formatting, type checks, and tests with a 90% coverage gate
 ```
 
+GitHub Actions runs `make check` against a Postgres service on every push to `main` and every pull
+request (`.github/workflows/check.yml`).
+
 Coding and testing standards for humans and AI agents are in [`AGENTS.md`](AGENTS.md), with
 stack-specific rules in [`frontend/AGENTS.md`](frontend/AGENTS.md) and
 [`backend/AGENTS.md`](backend/AGENTS.md).
+
+## Deploy
+
+The frontend runs on Vercel, the API on Fly.io and the database on Supabase, all in Singapore:
+every page makes a few API calls and each call makes a few queries, so the three sit together.
+The browser only talks to the frontend, which calls the API from its server, so the API needs no
+CORS.
+
+1. **Database (Supabase).** Create a project in Southeast Asia (Singapore), then:
+   - turn off the Data API (Integrations → Data API). The app reaches Postgres only through its
+     own API, and the Data API could otherwise expose the tables the migrations create;
+   - copy the **Session pooler** connection string (Connect → Session pooler) and add
+     `?sslmode=require`. The direct connection is IPv6-only, and Fly's IPv6 route to Supabase has
+     dropped connections before; the session pooler is IPv4 and behaves like a normal connection.
+
+   On the free plan, a project with little activity for 7 days is paused until you restore it.
+
+2. **API (Fly.io)**, from `backend/` (settings in `fly.toml`, image from `Dockerfile`):
+
+   ```sh
+   fly apps create salary-mgmt-api   # if the name is taken, pick another and update fly.toml
+   fly secrets set DATABASE_URL='<session pooler URL>' JWT_SECRET="$(openssl rand -hex 32)"
+   fly deploy
+   curl https://salary-mgmt-api.fly.dev/health
+   ```
+
+   Migrations run when the API starts. Idle machines stop and start again on the next request,
+   which then takes a few seconds; set `min_machines_running = 1` in `fly.toml` to keep one running.
+
+3. **Demo data**, once, from `backend/` on your machine. It prints the demo login:
+
+   ```sh
+   DATABASE_URL='<session pooler URL>' uv run python -m app.seed
+   ```
+
+4. **Frontend (Vercel).** Import the repository with Root Directory `frontend` and set
+   `API_BASE_URL=https://salary-mgmt-api.fly.dev`. Its functions run in Singapore
+   (`frontend/vercel.json`), and the session cookie is `Secure` in production.

@@ -31,7 +31,8 @@ with `uv add <pkg>` (`uv add --dev <pkg>` for tooling); never use pip or hand-ed
 the psycopg 3 driver automatically. When `DATABASE_URL` is set, the API applies pending migrations
 on startup (serialized with a Postgres advisory lock); when unset, it starts without a database.
 `JWT_SECRET` (at least 32 characters) signs login tokens; the API refuses to start with a database
-but without it.
+but without it. In production both come from Fly secrets: `.dockerignore` keeps `.env` out of the
+image.
 
 ## Structure
 
@@ -47,6 +48,7 @@ app/
   db/            SQLAlchemy models (models.py), metadata (base.py), migration runner (migrate.py)
   seed/          demo data: pure generator, database writer, CLI (`python -m app.seed`)
 migrations/      Alembic environment and versions/
+Dockerfile       production image (uv, no dev dependencies); fly.toml deploys it to Fly.io
 tests/           mirrors app/: app/services/payroll.py ↔ tests/services/test_payroll.py
   conftest.py    shared fixtures: `app`, `client` and the in-memory repositories
   api/           contract tests; `api_client` serves the in-memory repositories

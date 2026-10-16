@@ -31,6 +31,12 @@ The frontend needs Node 24 (`nvm use 24`); uv manages Python for the backend. Th
 reads `API_BASE_URL` (default `http://localhost:8000`). Tests use a separate database,
 `TEST_DATABASE_URL` (default `postgresql://localhost:5432/salary_mgmt_test`), which they wipe.
 
+CI (`.github/workflows/check.yml`) runs `make check` on every push to `main` and every pull
+request. In production the API runs on Fly.io (`backend/Dockerfile`, `backend/fly.toml`) and the
+frontend on Vercel (`frontend/vercel.json`), next to a Supabase database; see "Deploy" in the
+README. Production settings live in Fly secrets and Vercel environment variables, never in these
+files.
+
 ## Engineering standards
 
 Code is written to a high standard of quality **and** test coverage, on both the frontend and the

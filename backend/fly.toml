@@ -1,0 +1,25 @@
+# Fly.io settings for the API. Deploy from backend/ with `fly deploy`.
+# DATABASE_URL and JWT_SECRET are set with `fly secrets set`, never in this file.
+app = "salary-mgmt-api"
+# Singapore, next to the database (Supabase ap-southeast-1) and the frontend's functions (sin1).
+primary_region = "sin"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  # Idle machines stop and start again on the next request, which then takes a few seconds.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  # Each login's Argon2 check uses 64 MB.
+  memory = "512mb"
