@@ -40,12 +40,12 @@ export function EmployeeTable({ rows, month }: Props) {
       </TableHeader>
       <TableBody>
         {rows.map(({ employee, payroll }) => (
-          <TableRow key={employee.id}>
+          <TableRow key={employee.id} className="relative">
             <TableCell>{employee.id}</TableCell>
             <TableCell>
               <Link
                 href={`/employees/${employee.id}`}
-                className="font-medium hover:underline"
+                className="font-medium after:absolute after:inset-0 after:z-10 after:content-[''] hover:underline"
               >
                 {employee.name}
               </Link>
@@ -62,7 +62,10 @@ export function EmployeeTable({ rows, month }: Props) {
             </TableCell>
             <TableCell>
               {payroll ? (
-                <Badge render={<Link href={`/payrolls/${payroll.id}`} />}>
+                <Badge
+                  className="relative z-20"
+                  render={<Link href={`/payrolls/${payroll.id}`} />}
+                >
                   Paid
                 </Badge>
               ) : (
