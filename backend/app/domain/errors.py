@@ -41,6 +41,14 @@ class InactiveEmployeeError(ConflictError):
         super().__init__(f"Employee {employee_id} is inactive, so no new payrolls can be added")
 
 
+class PayrollBeforeJoiningError(ConflictError):
+    def __init__(self, employee_id: int, joined: date, month: date) -> None:
+        super().__init__(
+            f"Employee {employee_id} joined in {joined:%Y-%m}, "
+            f"so they cannot be paid for {month:%Y-%m}"
+        )
+
+
 class AuthenticationError(DomainError):
     """The caller could not be identified; the API answers 401."""
 

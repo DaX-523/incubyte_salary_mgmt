@@ -10,7 +10,12 @@ from sqlalchemy.orm import Session
 from app.db.models import Employee
 from app.domain.errors import DuplicateEmailError
 from app.repositories.employees import SqlEmployeeRepository
-from app.schemas.employees import EmployeeSortField, MonthlyEmployeeQuery, SortOrder
+from app.schemas.employees import (
+    EmployeeSortField,
+    MonthlyEmployeeFilters,
+    MonthlyEmployeeQuery,
+    SortOrder,
+)
 from tests.fakes import ORGANIZATION_ID, make_employee, make_payroll
 
 OCTOBER = date(2026, 10, 1)
@@ -202,3 +207,27 @@ def test_list_pages_through_all_matches(session: Session) -> None:
         [],
     ]
     assert {page.total for page in pages} == {5}
+
+
+def test_list_all_returns_every_match_sorted_with_that_month_payroll(session: Session) -> None:
+    add_employee(session, name="dee", monthly_salary=Decimal("5000.00"))
+    cat = add_employee(session, name="cat", monthly_salary=Decimal("9000.00"))
+    add_employee(session, name="bob", monthly_salary=Decimal("3000.00"))
+    add_employee(session, name="ira", monthly_salary=Decimal("99000.00"), country="IN")
+    session.add(make_payroll(employee_id=cat.id, month=OCTOBER))
+    session.commit()
+
+    rows = SqlEmployeeRepository(session, ORGANIZATION_ID).list_all_for_month(
+        MonthlyEmployeeFilters(
+            month=OCTOBER,
+            country="GB",
+            sort_by=EmployeeSortField.MONTHLY_SALARY,
+            sort_order=SortOrder.DESC,
+        )
+    )
+
+    assert [(employee.name, payroll is not None) for employee, payroll in rows] == [
+        ("cat", True),
+        ("dee", False),
+        ("bob", False),
+    ]

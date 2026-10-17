@@ -10,15 +10,18 @@ from tests.fakes import JWT_SECRET, NOW
 
 PROTECTED_ENDPOINTS = [
     ("GET", "/api/v1/employees?month=2026-10"),
+    ("GET", "/api/v1/employees/export?month=2026-10"),
     ("POST", "/api/v1/employees"),
     ("GET", "/api/v1/employees/1"),
     ("PATCH", "/api/v1/employees/1"),
     ("DELETE", "/api/v1/employees/1"),
+    ("GET", "/api/v1/employees/1/payrolls"),
     ("POST", "/api/v1/employees/1/payrolls"),
     ("GET", "/api/v1/payrolls/1"),
     ("PATCH", "/api/v1/payrolls/1"),
     ("GET", "/api/v1/insights/payroll-status?month=2026-10"),
     ("GET", "/api/v1/insights/pay-by-job-title?country=GB"),
+    ("GET", "/api/v1/insights/pay-by-country"),
     ("GET", "/api/v1/auth/me"),
     ("POST", "/api/v1/auth/logout"),
 ]

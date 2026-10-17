@@ -11,11 +11,11 @@ from typing import Any
 from app.core.security import hash_password
 from app.db.models import Employee, PaymentMethod, Payroll, User
 from app.domain.errors import DuplicateEmailError, DuplicatePayrollError
-from app.repositories.employees import MonthlyEmployeeRows
-from app.repositories.insights import JobTitlePayRow, PaidCount
+from app.repositories.employees import MonthlyEmployeeRow, MonthlyEmployeeRows
+from app.repositories.insights import CountryPayRow, JobTitlePayRow, PaidCount
 from app.repositories.population import MonthFilter
 from app.repositories.users import UserProfile
-from app.schemas.employees import MonthlyEmployeeQuery
+from app.schemas.employees import MonthlyEmployeeFilters, MonthlyEmployeeQuery
 
 # The organization test data belongs to; integration tests create it before each test.
 ORGANIZATION_ID = 1
@@ -97,6 +97,7 @@ class InMemoryEmployeeRepository:
         self.save_count = 0
         self.monthly_rows = MonthlyEmployeeRows(rows=[], total=0)
         self.monthly_queries: list[MonthlyEmployeeQuery] = []
+        self.exported_filters: list[MonthlyEmployeeFilters] = []
 
     def get(self, employee_id: int) -> Employee | None:
         return self.employees.get(employee_id)
@@ -104,6 +105,9 @@ class InMemoryEmployeeRepository:
     def add(self, employee: Employee) -> Employee:
         self._ensure_unique_email(employee)
         employee.id = max(self.employees, default=0) + 1
+        if employee.created_at is None:
+            # The database fills it in with now(); here it is the tests' fixed clock.
+            employee.created_at = NOW
         self.employees[employee.id] = employee
         return employee
 
@@ -115,6 +119,10 @@ class InMemoryEmployeeRepository:
     def list_for_month(self, query: MonthlyEmployeeQuery) -> MonthlyEmployeeRows:
         self.monthly_queries.append(query)
         return self.monthly_rows
+
+    def list_all_for_month(self, filters: MonthlyEmployeeFilters) -> list[MonthlyEmployeeRow]:
+        self.exported_filters.append(filters)
+        return self.monthly_rows.rows
 
     def _ensure_unique_email(self, employee: Employee) -> None:
         if any(
@@ -131,6 +139,12 @@ class InMemoryPayrollRepository:
 
     def get(self, payroll_id: int) -> Payroll | None:
         return self.payrolls.get(payroll_id)
+
+    def list_for_employee(self, employee_id: int) -> list[Payroll]:
+        theirs = [
+            payroll for payroll in self.payrolls.values() if payroll.employee_id == employee_id
+        ]
+        return sorted(theirs, key=lambda payroll: payroll.month, reverse=True)
 
     def add(self, payroll: Payroll) -> Payroll:
         if any(
@@ -151,6 +165,7 @@ class StubInsightsRepository:
     def __init__(self) -> None:
         self.paid_count = PaidCount(total=0, paid=0)
         self.job_title_rows: list[JobTitlePayRow] = []
+        self.country_rows: list[CountryPayRow] = []
         self.month_filters: list[MonthFilter] = []
         self.countries: list[str] = []
 
@@ -161,3 +176,6 @@ class StubInsightsRepository:
     def pay_by_job_title(self, country: str) -> list[JobTitlePayRow]:
         self.countries.append(country)
         return [replace(row) for row in self.job_title_rows]
+
+    def pay_by_country(self) -> list[CountryPayRow]:
+        return [replace(row) for row in self.country_rows]

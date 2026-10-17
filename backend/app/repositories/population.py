@@ -21,6 +21,13 @@ def first_moment_of_next_month(month: date) -> datetime:
     return datetime.combine(next_month, time.min, tzinfo=UTC)
 
 
+def month_joined(created_at: datetime) -> date:
+    """The first month an employee is on the books: the month they were added, counted in UTC
+    like `on_the_books`."""
+    joined = created_at.astimezone(UTC)
+    return date(joined.year, joined.month, 1)
+
+
 def payroll_for_month(month: date) -> ColumnElement[bool]:
     """Join condition: the employee's payroll for `month`, if any."""
     return and_(Payroll.employee_id == Employee.id, Payroll.month == month)

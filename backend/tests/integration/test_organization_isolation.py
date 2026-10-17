@@ -15,10 +15,10 @@ NEW_EMPLOYEE = {
     "country": "US",
     "job_title": "Engineering Manager",
 }
-NEW_PAYROLL = {"month": "2026-10", "base": "7000", "payment_method": "bank_transfer"}
 LogIn = Callable[..., dict[str, str]]
 # Far enough ahead that everyone created during the test is on the books.
 LATER_MONTH = "2099-12"
+NEW_PAYROLL = {"month": LATER_MONTH, "base": "7000", "payment_method": "bank_transfer"}
 
 
 @pytest.fixture
@@ -45,7 +45,8 @@ def records(db_client: TestClient) -> dict[str, int]:
         ("GET", "/api/v1/employees/{employee}", None),
         ("PATCH", "/api/v1/employees/{employee}", {"name": "Taken Over"}),
         ("DELETE", "/api/v1/employees/{employee}", None),
-        ("POST", "/api/v1/employees/{employee}/payrolls", {**NEW_PAYROLL, "month": "2026-11"}),
+        ("GET", "/api/v1/employees/{employee}/payrolls", None),
+        ("POST", "/api/v1/employees/{employee}/payrolls", {**NEW_PAYROLL, "month": "2099-11"}),
         ("GET", "/api/v1/payrolls/{payroll}", None),
         ("PATCH", "/api/v1/payrolls/{payroll}", {"bonus": "1000"}),
     ],
@@ -53,6 +54,7 @@ def records(db_client: TestClient) -> dict[str, int]:
         "read-employee",
         "edit-employee",
         "deactivate-employee",
+        "read-pay-history",
         "pay-employee",
         "read-payroll",
         "edit-payroll",
@@ -89,11 +91,17 @@ def test_another_organization_sees_none_of_its_employees(
     pay_ranges = db_client.get(
         "/api/v1/insights/pay-by-job-title", params={"country": "US"}, headers=other_organization
     )
+    pay_by_country = db_client.get("/api/v1/insights/pay-by-country", headers=other_organization)
+    export = db_client.get(
+        "/api/v1/employees/export", params={"month": LATER_MONTH}, headers=other_organization
+    )
 
     assert own_listing.json()["total"] == 1
     assert listing.json()["total"] == 0
     assert (paid.json()["total"], paid.json()["paid"]) == (0, 0)
     assert pay_ranges.json()["job_titles"] == []
+    assert pay_by_country.json()["countries"] == []
+    assert export.text.splitlines()[1:] == []
 
 
 def test_two_organizations_can_employ_the_same_email(

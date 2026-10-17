@@ -9,7 +9,12 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Employee, Payroll
 from app.domain.errors import DuplicatePayrollError
-from app.repositories.insights import JobTitlePayRow, PaidCount, SqlInsightsRepository
+from app.repositories.insights import (
+    CountryPayRow,
+    JobTitlePayRow,
+    PaidCount,
+    SqlInsightsRepository,
+)
 from app.repositories.payrolls import SqlPayrollRepository
 from app.repositories.population import MonthFilter
 from tests.fakes import ORGANIZATION_ID, make_employee, make_payroll
@@ -70,6 +75,32 @@ def test_payroll_save_persists_changes(session: Session) -> None:
     assert session.scalar(select(Payroll.bonus)) == Decimal("300.00")
 
 
+def test_payroll_list_for_employee_returns_their_payrolls_newest_month_first(
+    session: Session,
+) -> None:
+    ada = add_employee(session, "ada")
+    alan = add_employee(session, "alan")
+    pay(session, ada, date(2026, 8, 1))
+    pay(session, ada, OCTOBER)
+    pay(session, alan, date(2026, 9, 1))
+    pay(session, ada, date(2026, 9, 1))
+
+    payrolls = SqlPayrollRepository(session, ORGANIZATION_ID).list_for_employee(ada.id)
+
+    assert [(payroll.employee_id, payroll.month) for payroll in payrolls] == [
+        (ada.id, OCTOBER),
+        (ada.id, date(2026, 9, 1)),
+        (ada.id, date(2026, 8, 1)),
+    ]
+
+
+def test_payroll_list_for_employee_skips_another_organization(session: Session) -> None:
+    ada = add_employee(session, "ada")
+    pay(session, ada)
+
+    assert SqlPayrollRepository(session, ORGANIZATION_ID + 1).list_for_employee(ada.id) == []
+
+
 def test_payroll_get_returns_none_for_an_unknown_id(session: Session) -> None:
     assert SqlPayrollRepository(session, ORGANIZATION_ID).get(404) is None
 
@@ -118,6 +149,7 @@ def test_pay_by_job_title_reports_ranges_for_active_employees_in_one_country(
 ) -> None:
     add_employee(session, "a", monthly_salary=Decimal("5000.00"))
     add_employee(session, "b", monthly_salary=Decimal("6200.00"))
+    add_employee(session, "f", monthly_salary=Decimal("6200.01"))
     add_employee(session, "c", monthly_salary=Decimal("9900.00"), is_active=False)
     add_employee(session, "d", monthly_salary=Decimal("99000.00"), country="IN")
     add_employee(
@@ -130,11 +162,24 @@ def test_pay_by_job_title_reports_ranges_for_active_employees_in_one_country(
 
     rows = SqlInsightsRepository(session, ORGANIZATION_ID).pay_by_job_title("GB")
 
+    # Averages are not rounded yet. Decimals compare by value: 4100.00 == 4100.0000000000000000.
     assert rows == [
         JobTitlePayRow(
-            "Software Engineer", "Engineering", 2, Decimal("5000.00"), Decimal("6200.00")
+            "Software Engineer",
+            "Engineering",
+            3,
+            Decimal("5000.00"),
+            Decimal("6200.01"),
+            Decimal("5800.0033333333333333"),
         ),
-        JobTitlePayRow("Accountant", "Finance", 1, Decimal("4100.00"), Decimal("4100.00")),
+        JobTitlePayRow(
+            "Accountant",
+            "Finance",
+            1,
+            Decimal("4100.00"),
+            Decimal("4100.00"),
+            Decimal("4100.00"),
+        ),
     ]
 
 
@@ -142,3 +187,25 @@ def test_pay_by_job_title_is_empty_for_a_country_without_employees(session: Sess
     add_employee(session, "ada")
 
     assert SqlInsightsRepository(session, ORGANIZATION_ID).pay_by_job_title("JP") == []
+
+
+def test_pay_by_country_sums_and_averages_active_employees_per_country(session: Session) -> None:
+    add_employee(session, "a", monthly_salary=Decimal("5000.00"))
+    add_employee(session, "b", monthly_salary=Decimal("6000.01"))
+    add_employee(session, "c", monthly_salary=Decimal("9900.00"), is_active=False)
+    add_employee(session, "d", monthly_salary=Decimal("99000.00"), country="IN")
+    add_employee(session, "e", monthly_salary=Decimal("400000.00"), country="DE")
+
+    rows = SqlInsightsRepository(session, ORGANIZATION_ID).pay_by_country()
+
+    assert rows == [
+        CountryPayRow("DE", 1, Decimal("400000.00"), Decimal("400000.00")),
+        CountryPayRow("GB", 2, Decimal("5500.005"), Decimal("11000.01")),
+        CountryPayRow("IN", 1, Decimal("99000.00"), Decimal("99000.00")),
+    ]
+
+
+def test_pay_by_country_is_empty_without_active_employees(session: Session) -> None:
+    add_employee(session, "ada", is_active=False)
+
+    assert SqlInsightsRepository(session, ORGANIZATION_ID).pay_by_country() == []

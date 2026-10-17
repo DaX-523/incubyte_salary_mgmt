@@ -22,12 +22,23 @@ class JobTitlePayRow:
     headcount: int
     min_salary: Decimal
     max_salary: Decimal
+    average_salary: Decimal  # as the database computes it, not yet rounded to cents
+
+
+@dataclass(frozen=True)
+class CountryPayRow:
+    country: str
+    headcount: int
+    average_salary: Decimal  # as the database computes it, not yet rounded to cents
+    total_salary: Decimal
 
 
 class InsightsRepository(Protocol):
     def count_paid(self, month_filter: MonthFilter) -> PaidCount: ...
 
     def pay_by_job_title(self, country: str) -> list[JobTitlePayRow]: ...
+
+    def pay_by_country(self) -> list[CountryPayRow]: ...
 
 
 class SqlInsightsRepository:
@@ -55,6 +66,7 @@ class SqlInsightsRepository:
                 func.count(Employee.id),
                 func.min(Employee.monthly_salary),
                 func.max(Employee.monthly_salary),
+                func.avg(Employee.monthly_salary),
             )
             .where(
                 Employee.organization_id == self._organization_id,
@@ -65,8 +77,27 @@ class SqlInsightsRepository:
             .order_by(Employee.department, Employee.job_title)
         )
         return [
-            JobTitlePayRow(job_title, department, headcount, min_salary, max_salary)
-            for job_title, department, headcount, min_salary, max_salary in self._session.execute(
-                statement
+            JobTitlePayRow(job_title, department, headcount, min_salary, max_salary, average)
+            for job_title, department, headcount, min_salary, max_salary, average in (
+                self._session.execute(statement)
             )
+        ]
+
+    def pay_by_country(self) -> list[CountryPayRow]:
+        """One row per country: its salaries share a currency, so they can be averaged and summed.
+        Different countries' rows are never added together."""
+        statement = (
+            select(
+                Employee.country,
+                func.count(Employee.id),
+                func.avg(Employee.monthly_salary),
+                func.sum(Employee.monthly_salary),
+            )
+            .where(Employee.organization_id == self._organization_id, Employee.is_active)
+            .group_by(Employee.country)
+            .order_by(Employee.country)
+        )
+        return [
+            CountryPayRow(country, headcount, average, total)
+            for country, headcount, average, total in self._session.execute(statement)
         ]

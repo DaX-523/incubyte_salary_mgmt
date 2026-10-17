@@ -93,7 +93,11 @@ Everything lives under `/api/v1` (OpenAPI docs at `/docs`). Domain errors map to
 - `DELETE /employees/{id}` deactivates; nothing is ever deleted, and inactive employees can't get
   new payrolls.
 - "On the books for a month" (`app/repositories/population.py`) is shared by the monthly list
-  and the paid-vs-total insight, so the two always agree.
+  and the paid-vs-total insight, so the two always agree. An employee joins in the month their
+  row was created (`month_joined`), and payrolls for earlier months are refused (409), since
+  they would never be counted.
+- `GET /employees/export` is the one unpaginated list: the monthly list's filters and order as
+  CSV (`app/services/employee_export.py`).
 
 ## Authentication and organizations
 

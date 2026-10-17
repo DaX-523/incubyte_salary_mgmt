@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -158,6 +158,50 @@ def test_list_sorts_by_salary_within_a_country(api_client: TestClient) -> None:
     )
 
     assert response.status_code == status.HTTP_200_OK
+
+
+# --- GET /employees/export ---
+
+
+def test_export_sends_the_monthly_list_as_csv(
+    api_client: TestClient, employee_repository: InMemoryEmployeeRepository
+) -> None:
+    employee_repository.monthly_rows = MonthlyEmployeeRows(
+        rows=[(make_employee(id=1), None)], total=1
+    )
+
+    response = api_client.get(
+        "/api/v1/employees/export", params={"month": "2026-10", "country": "GB", "page": 3}
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.headers["content-type"] == "text/csv; charset=utf-8"
+    assert response.text.splitlines() == [
+        "Employee ID,Name,Email,Country,Job title,Department,Currency,Monthly salary,Month,Paid,"
+        "Base pay,Bonus,ESOPs,Payment method",
+        "1,Ada Lovelace,ada@example.com,GB,Software Engineer,Engineering,GBP,5000.00,2026-10,"
+        "No,,,,",
+    ]
+    [filters] = employee_repository.exported_filters
+    assert (filters.month, filters.country) == (date(2026, 10, 1), "GB")
+
+
+@pytest.mark.parametrize(
+    ("params", "message"),
+    [
+        ({}, "Field required"),
+        ({"month": "2026-10", "country": "XX"}, "unknown country"),
+        ({"month": "2026-10", "sort_by": "monthly_salary"}, "needs a country filter"),
+    ],
+    ids=["missing-month", "unknown-country", "salary-sort-across-countries"],
+)
+def test_export_rejects_the_filters_the_list_rejects(
+    api_client: TestClient, params: dict[str, Any], message: str
+) -> None:
+    response = api_client.get("/api/v1/employees/export", params=params)
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert message in response.text
 
 
 # --- POST /employees ---
@@ -362,6 +406,54 @@ def test_delete_reports_a_missing_employee(api_client: TestClient) -> None:
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
+# --- GET /employees/{id}/payrolls ---
+
+
+def test_list_payrolls_returns_the_employee_pay_history_newest_first(
+    api_client: TestClient,
+    employee_repository: InMemoryEmployeeRepository,
+    payroll_repository: InMemoryPayrollRepository,
+) -> None:
+    employee_repository.add(make_employee())
+    payroll_repository.add(make_payroll(employee_id=1, month=date(2026, 9, 1)))
+    payroll_repository.add(
+        make_payroll(employee_id=1, month=date(2026, 10, 1), bonus=Decimal("250.5"))
+    )
+
+    response = api_client.get("/api/v1/employees/1/payrolls")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == [
+        {
+            "id": 2,
+            "employee_id": 1,
+            "month": "2026-10",
+            "base": "5000.00",
+            "bonus": "250.50",
+            "esops": "0.00",
+            "currency": "GBP",
+            "payment_method": "bank_transfer",
+        },
+        {
+            "id": 1,
+            "employee_id": 1,
+            "month": "2026-09",
+            "base": "5000.00",
+            "bonus": "0.00",
+            "esops": "0.00",
+            "currency": "GBP",
+            "payment_method": "bank_transfer",
+        },
+    ]
+
+
+def test_list_payrolls_reports_a_missing_employee(api_client: TestClient) -> None:
+    response = api_client.get("/api/v1/employees/42/payrolls")
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json() == {"detail": "Employee 42 not found"}
+
+
 # --- POST /employees/{id}/payrolls ---
 
 
@@ -425,6 +517,21 @@ def test_create_payroll_rejects_an_inactive_employee(
 
     assert response.status_code == status.HTTP_409_CONFLICT
     assert response.json() == {"detail": "Employee 1 is inactive, so no new payrolls can be added"}
+
+
+def test_create_payroll_rejects_a_month_before_the_employee_joined(
+    api_client: TestClient, employee_repository: InMemoryEmployeeRepository
+) -> None:
+    employee_repository.add(make_employee(created_at=datetime(2026, 10, 16, 9, 0, tzinfo=UTC)))
+
+    response = api_client.post(
+        "/api/v1/employees/1/payrolls", json={**NEW_PAYROLL, "month": "2026-09"}
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.json() == {
+        "detail": "Employee 1 joined in 2026-10, so they cannot be paid for 2026-09"
+    }
 
 
 def test_create_payroll_rejects_a_second_payroll_for_the_month(

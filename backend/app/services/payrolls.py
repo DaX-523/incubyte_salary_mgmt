@@ -1,8 +1,13 @@
 from app.db.models import Payroll
 from app.domain.catalog import CURRENCY_BY_COUNTRY
-from app.domain.errors import InactiveEmployeeError, PayrollNotFoundError
+from app.domain.errors import (
+    InactiveEmployeeError,
+    PayrollBeforeJoiningError,
+    PayrollNotFoundError,
+)
 from app.repositories.employees import EmployeeRepository
 from app.repositories.payrolls import PayrollRepository
+from app.repositories.population import month_joined
 from app.schemas.payrolls import PayrollCreate, PayrollUpdate
 from app.services.employees import get_employee
 
@@ -14,6 +19,14 @@ def get_payroll(repository: PayrollRepository, payroll_id: int) -> Payroll:
     return payroll
 
 
+def list_employee_payrolls(
+    employees: EmployeeRepository, payrolls: PayrollRepository, employee_id: int
+) -> list[Payroll]:
+    """The employee's pay history, newest month first."""
+    employee = get_employee(employees, employee_id)
+    return payrolls.list_for_employee(employee.id)
+
+
 def create_payroll(
     employees: EmployeeRepository,
     payrolls: PayrollRepository,
@@ -23,6 +36,10 @@ def create_payroll(
     employee = get_employee(employees, employee_id)
     if not employee.is_active:
         raise InactiveEmployeeError(employee_id)
+    # Before that month the employee isn't on the books, so the payroll would never be counted.
+    joined = month_joined(employee.created_at)
+    if data.month < joined:
+        raise PayrollBeforeJoiningError(employee_id, joined, data.month)
     payroll = Payroll(
         employee_id=employee.id,
         month=data.month,

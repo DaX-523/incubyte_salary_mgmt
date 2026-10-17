@@ -87,8 +87,8 @@ class SortOrder(StrEnum):
     DESC = "desc"
 
 
-class MonthlyEmployeeQuery(BaseModel):
-    """Who is on the books in `month`, filtered, sorted and paginated."""
+class MonthlyEmployeeFilters(BaseModel):
+    """Who is on the books in `month`, filtered and sorted: every match, as the CSV export sends."""
 
     month: Month
     name: EmployeeName | None = None
@@ -97,8 +97,6 @@ class MonthlyEmployeeQuery(BaseModel):
     job_title: JobTitleName | None = None
     sort_by: EmployeeSortField = EmployeeSortField.NAME
     sort_order: SortOrder = SortOrder.ASC
-    page: PageNumber = 1
-    page_size: PageSize = DEFAULT_PAGE_SIZE
 
     @model_validator(mode="after")
     def _salary_sort_needs_a_country(self) -> Self:
@@ -107,6 +105,13 @@ class MonthlyEmployeeQuery(BaseModel):
                 "sorting by monthly_salary needs a country filter: salaries are in local currencies"
             )
         return self
+
+
+class MonthlyEmployeeQuery(MonthlyEmployeeFilters):
+    """The same, one page at a time, as the dashboard shows it."""
+
+    page: PageNumber = 1
+    page_size: PageSize = DEFAULT_PAGE_SIZE
 
 
 class MonthlyEmployee(BaseModel):

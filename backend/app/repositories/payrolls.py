@@ -12,6 +12,8 @@ from app.repositories.errors import violates_unique_constraint
 class PayrollRepository(Protocol):
     def get(self, payroll_id: int) -> Payroll | None: ...
 
+    def list_for_employee(self, employee_id: int) -> list[Payroll]: ...
+
     def add(self, payroll: Payroll) -> Payroll: ...
 
     def save(self, payroll: Payroll) -> Payroll: ...
@@ -30,6 +32,20 @@ class SqlPayrollRepository:
             select(Payroll)
             .join(Employee, Employee.id == Payroll.employee_id)
             .where(Payroll.id == payroll_id, Employee.organization_id == self._organization_id)
+        )
+
+    def list_for_employee(self, employee_id: int) -> list[Payroll]:
+        """Newest month first. Served by the (employee_id, month) unique index."""
+        return list(
+            self._session.scalars(
+                select(Payroll)
+                .join(Employee, Employee.id == Payroll.employee_id)
+                .where(
+                    Payroll.employee_id == employee_id,
+                    Employee.organization_id == self._organization_id,
+                )
+                .order_by(Payroll.month.desc())
+            )
         )
 
     def add(self, payroll: Payroll) -> Payroll:

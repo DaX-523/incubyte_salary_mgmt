@@ -6,7 +6,7 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from app.repositories.insights import JobTitlePayRow, PaidCount
+from app.repositories.insights import CountryPayRow, JobTitlePayRow, PaidCount
 from app.repositories.population import MonthFilter
 from tests.fakes import StubInsightsRepository
 
@@ -42,7 +42,14 @@ def test_pay_by_job_title_lists_salary_ranges_for_one_country(
     api_client: TestClient, insights_repository: StubInsightsRepository
 ) -> None:
     insights_repository.job_title_rows = [
-        JobTitlePayRow("Accountant", "Finance", 41, Decimal("3060.00"), Decimal("4140.00"))
+        JobTitlePayRow(
+            "Accountant",
+            "Finance",
+            41,
+            Decimal("3060.00"),
+            Decimal("4140.00"),
+            Decimal("3612.1951219512195122"),
+        )
     ]
 
     response = api_client.get("/api/v1/insights/pay-by-job-title", params={"country": "DE"})
@@ -58,6 +65,7 @@ def test_pay_by_job_title_lists_salary_ranges_for_one_country(
                 "headcount": 41,
                 "min_salary": "3060.00",
                 "max_salary": "4140.00",
+                "average_salary": "3612.20",
             }
         ],
     }
@@ -72,3 +80,26 @@ def test_pay_by_job_title_needs_a_known_country(
     response = api_client.get("/api/v1/insights/pay-by-job-title", params=params)
 
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+def test_pay_by_country_lists_each_country_in_its_own_currency(
+    api_client: TestClient, insights_repository: StubInsightsRepository
+) -> None:
+    insights_repository.country_rows = [
+        CountryPayRow("DE", 2, Decimal("4500.005"), Decimal("9000.01"))
+    ]
+
+    response = api_client.get("/api/v1/insights/pay-by-country")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {
+        "countries": [
+            {
+                "country": "DE",
+                "currency": "EUR",
+                "headcount": 2,
+                "average_salary": "4500.01",
+                "total_monthly_salary": "9000.01",
+            }
+        ]
+    }

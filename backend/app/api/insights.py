@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query
 
 from app.api.dependencies import InsightsRepositoryDep
 from app.schemas.insights import (
+    PayByCountry,
     PayByJobTitle,
     PayByJobTitleQuery,
     PayrollStatus,
@@ -26,5 +27,11 @@ def get_payroll_status(
 def get_pay_by_job_title(
     query: Annotated[PayByJobTitleQuery, Query()], insights: InsightsRepositoryDep
 ) -> PayByJobTitle:
-    """Salary range per job title within one country."""
+    """Salary range and average per job title within one country."""
     return insights_service.pay_by_job_title(insights, query)
+
+
+@router.get("/pay-by-country")
+def get_pay_by_country(insights: InsightsRepositoryDep) -> PayByCountry:
+    """Headcount, average and total monthly salary per country, each in its own currency."""
+    return insights_service.pay_by_country(insights)
