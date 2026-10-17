@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 import { DeactivateEmployee } from "@/components/employees/deactivate-employee";
 import { EmployeeDetails } from "@/components/employees/employee-details";
 import { EmployeeForm } from "@/components/employees/employee-form";
+import { PayrollHistory } from "@/components/employees/payroll-history";
 import { PayrollForm } from "@/components/payrolls/payroll-form";
 import { Badge } from "@/components/ui/badge";
-import { getEmployee, getFilterOptions } from "@/lib/api";
+import { getEmployee, getFilterOptions, listEmployeePayrolls } from "@/lib/api";
 import { currentMonth } from "@/lib/month";
 import { positiveInteger } from "@/lib/search-params";
 
@@ -23,8 +24,9 @@ export default async function EmployeePage({
   if (employeeId === undefined) {
     notFound();
   }
-  const [employee, options] = await Promise.all([
+  const [employee, payrolls, options] = await Promise.all([
     loadOr404(getEmployee(employeeId)),
+    loadOr404(listEmployeePayrolls(employeeId)),
     getFilterOptions(),
   ]);
   return (
@@ -34,6 +36,12 @@ export default async function EmployeePage({
         {!employee.is_active && <Badge variant="outline">Inactive</Badge>}
       </header>
       <EmployeeDetails employee={employee} />
+      <section aria-labelledby="history-heading" className="grid gap-4">
+        <h2 id="history-heading" className="text-lg font-semibold">
+          Payroll history
+        </h2>
+        <PayrollHistory payrolls={payrolls} />
+      </section>
       <section aria-labelledby="edit-heading" className="grid gap-4">
         <h2 id="edit-heading" className="text-lg font-semibold">
           Edit details

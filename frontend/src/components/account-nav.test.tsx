@@ -21,9 +21,10 @@ describe("AccountNav", () => {
 
     render(await AccountNav());
 
-    expect(
-      screen.getByRole("link", { name: "Pay by job title" }),
-    ).toHaveAttribute("href", "/insights");
+    expect(screen.getByRole("link", { name: "Pay insights" })).toHaveAttribute(
+      "href",
+      "/insights",
+    );
     expect(screen.getByRole("link", { name: "Add employee" })).toHaveAttribute(
       "href",
       "/employees/new",

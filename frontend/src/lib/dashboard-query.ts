@@ -1,10 +1,12 @@
 import type {
+  EmployeeExportQuery,
   EmployeeSortField,
+  FilterOptions,
   MonthlyEmployeeQuery,
   SortOrder,
 } from "@/lib/api";
 import { countryName } from "@/lib/format";
-import { MONTH_PATTERN } from "@/lib/month";
+import { currentMonth, MONTH_PATTERN } from "@/lib/month";
 import {
   firstParam,
   oneOf,
@@ -29,9 +31,19 @@ export type DashboardQuery = MonthlyEmployeeQuery & {
 type Allowed = { month: string; countries: string[]; jobTitles: string[] };
 
 const SORT_FIELDS: EmployeeSortField[] = ["name", "monthly_salary"];
+const EXPORT_PATH = "/employees/export";
 const SORT_ORDERS: SortOrder[] = ["asc", "desc"];
 const MAX_NAME_LENGTH = 200;
 const MAX_EMAIL_LENGTH = 320;
+
+/** The values the API's catalog offers, and the current month as the default month. */
+export function allowedFilters(options: FilterOptions, now: Date): Allowed {
+  return {
+    month: currentMonth(now),
+    countries: options.countries.map((country) => country.code),
+    jobTitles: options.job_titles.map((job) => job.title),
+  };
+}
 
 /**
  * Reads the dashboard's filters from the URL. Anything missing or invalid falls back to the
@@ -66,6 +78,25 @@ export function employeeListQuery(query: DashboardQuery): DashboardQuery {
   return salarySortNeedsCountry(query) ? { ...query, sort_by: "name" } : query;
 }
 
+/** Everyone the list shows for `query`, on one sheet: the same filters and order, no pages. */
+export function employeeExportQuery(
+  query: DashboardQuery,
+): EmployeeExportQuery {
+  const { month, name, email, country, job_title, sort_by, sort_order } =
+    employeeListQuery(query);
+  return { month, name, email, country, job_title, sort_by, sort_order };
+}
+
+/** The "Download CSV" link for what the dashboard shows. */
+export function employeeExportHref(query: DashboardQuery): string {
+  return withQuery(EXPORT_PATH, employeeExportQuery(query));
+}
+
+/** "2026-10" → "employees-2026-10.csv". */
+export function employeeExportFileName(month: string): string {
+  return `employees-${month}.csv`;
+}
+
 /** One of the offered page sizes, or the default. */
 export function parsePageSize(value: string | undefined): PageSize {
   return PAGE_SIZES.find((size) => String(size) === value) ?? DEFAULT_PAGE_SIZE;
@@ -84,6 +115,10 @@ export function activeFilterLabels(query: DashboardQuery): string[] {
 
 /** A dashboard URL for `query`, leaving out defaults to keep links short. */
 export function dashboardHref(query: Partial<DashboardQuery>): string {
+  return withQuery("/", query);
+}
+
+function withQuery(path: string, query: Partial<DashboardQuery>): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
     if (value !== undefined && !isDefault(key, value)) {
@@ -91,7 +126,7 @@ export function dashboardHref(query: Partial<DashboardQuery>): string {
     }
   }
   const search = params.toString();
-  return search ? `/?${search}` : "/";
+  return search ? `${path}?${search}` : path;
 }
 
 function limitedText(value: string | undefined, maxLength: number) {

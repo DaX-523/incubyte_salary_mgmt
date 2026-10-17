@@ -33,6 +33,11 @@ export function countryName(code: string): string {
   return countryNames.of(code) ?? code;
 }
 
+/** Orders country codes by their names: "DE" (Germany) before "IN" (India) before "GB". */
+export function byCountryName(a: string, b: string): number {
+  return countryName(a).localeCompare(countryName(b), LOCALE);
+}
+
 /** "2026-10" → "October 2026". */
 export function formatMonth(month: string): string {
   const [year, monthNumber] = month.split("-").map(Number);

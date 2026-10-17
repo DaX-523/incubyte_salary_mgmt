@@ -52,6 +52,12 @@ export type MonthlyEmployeeQuery = {
   page_size?: number;
 };
 
+/** The monthly list's filters and order, without pages: what the CSV export takes. */
+export type EmployeeExportQuery = Omit<
+  MonthlyEmployeeQuery,
+  "page" | "page_size"
+>;
+
 export type EmployeeCreate = {
   name: string;
   email: string;
@@ -91,6 +97,7 @@ export type JobTitlePay = {
   headcount: number;
   min_salary: string;
   max_salary: string;
+  average_salary: string;
 };
 
 export type PayByJobTitle = {
@@ -98,6 +105,17 @@ export type PayByJobTitle = {
   currency: string;
   job_titles: JobTitlePay[];
 };
+
+export type CountryPay = {
+  country: string;
+  currency: string;
+  headcount: number;
+  average_salary: string;
+  total_monthly_salary: string;
+};
+
+/** One row per country, each in its own currency: there is no organization-wide total. */
+export type PayByCountry = { countries: CountryPay[] };
 
 export type CountryOption = { code: string; currency: string };
 export type JobTitleOption = { title: string; department: string };

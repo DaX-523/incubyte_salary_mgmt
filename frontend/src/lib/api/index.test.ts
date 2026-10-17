@@ -67,6 +67,12 @@ describe("API endpoints", () => {
       "GET",
       "/employees?month=2026-10&page=2",
     ],
+    [
+      "exportEmployeesForMonth",
+      () => api.exportEmployeesForMonth({ month: "2026-10", country: "DE" }),
+      "GET",
+      "/employees/export?month=2026-10&country=DE",
+    ],
     ["getEmployee", () => api.getEmployee(4), "GET", "/employees/4"],
     [
       "createEmployee",
@@ -94,6 +100,12 @@ describe("API endpoints", () => {
       "/employees/4",
     ],
     [
+      "listEmployeePayrolls",
+      () => api.listEmployeePayrolls(4),
+      "GET",
+      "/employees/4/payrolls",
+    ],
+    [
       "createPayroll",
       () => api.createPayroll(4, PAYROLL),
       "POST",
@@ -117,6 +129,12 @@ describe("API endpoints", () => {
       () => api.getPayByJobTitle("JP"),
       "GET",
       "/insights/pay-by-job-title?country=JP",
+    ],
+    [
+      "getPayByCountry",
+      () => api.getPayByCountry(),
+      "GET",
+      "/insights/pay-by-country",
     ],
   ])("%s calls %s %s as the logged-in user", async (_, call, method, path) => {
     await call();

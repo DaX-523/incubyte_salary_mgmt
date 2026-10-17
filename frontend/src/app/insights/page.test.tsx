@@ -1,14 +1,15 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getFilterOptions, getPayByJobTitle } from "@/lib/api";
-import { GERMAN_PAY, OPTIONS } from "@/test/fixtures";
+import { getFilterOptions, getPayByCountry, getPayByJobTitle } from "@/lib/api";
+import { GERMAN_PAY, OPTIONS, PAY_BY_COUNTRY } from "@/test/fixtures";
 
 import InsightsPage from "./page";
 
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
   getFilterOptions: vi.fn(),
+  getPayByCountry: vi.fn(),
   getPayByJobTitle: vi.fn(),
 }));
 
@@ -23,6 +24,7 @@ async function renderInsights(searchParams: Record<string, string> = {}) {
 
 beforeEach(() => {
   vi.mocked(getFilterOptions).mockResolvedValue(OPTIONS);
+  vi.mocked(getPayByCountry).mockResolvedValue(PAY_BY_COUNTRY);
   vi.mocked(getPayByJobTitle).mockResolvedValue(GERMAN_PAY);
 });
 
@@ -31,12 +33,22 @@ afterEach(() => {
 });
 
 describe("InsightsPage", () => {
-  it("asks for a country before comparing salaries", async () => {
+  it("shows pay by country without choosing a country", async () => {
     await renderInsights();
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "Pay by job title" }),
+      screen.getByRole("heading", { level: 1, name: "Pay insights" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "By country" })).toContainElement(
+      screen.getByRole("table", {
+        name: "Monthly salaries of active employees, each country in its own currency",
+      }),
+    );
+  });
+
+  it("asks for a country before comparing job titles", async () => {
+    await renderInsights();
+
     expect(
       screen.getByText("Choose a country to see its salary ranges."),
     ).toBeInTheDocument();

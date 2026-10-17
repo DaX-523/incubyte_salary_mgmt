@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  byCountryName,
   countryName,
   formatCount,
   formatMoney,
@@ -34,6 +35,12 @@ describe("countryName", () => {
     ["XX", "XX"],
   ])("names %s as %s", (code, expected) => {
     expect(countryName(code)).toBe(expected);
+  });
+});
+
+describe("byCountryName", () => {
+  it("orders country codes by name, not by code", () => {
+    expect(["GB", "IN", "DE"].sort(byCountryName)).toEqual(["DE", "IN", "GB"]);
   });
 });
 

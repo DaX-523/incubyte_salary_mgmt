@@ -124,6 +124,15 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Showing 1–25 of 60")).toBeInTheDocument();
   });
 
+  it("offers the listed employees as a CSV download, with the same filters", async () => {
+    await renderDashboard({ month: "2026-09", country: "DE", page: "2" });
+
+    expect(screen.getByRole("link", { name: "Download CSV" })).toHaveAttribute(
+      "href",
+      "/employees/export?month=2026-09&country=DE",
+    );
+  });
+
   it("shows the paid vs total chart above the filters", async () => {
     await renderDashboard();
 

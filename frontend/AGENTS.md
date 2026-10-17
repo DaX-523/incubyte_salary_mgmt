@@ -53,8 +53,9 @@ Tests sit next to the code they test: `money.ts` → `money.test.ts`, `SalaryFor
 ## Data flow
 
 Pages are async Server Components that call `@/lib/api` on the server, so the browser never talks
-to the backend directly and the backend needs no CORS. The backend URL comes from `API_BASE_URL`
-(default `http://localhost:8000`; see `.env.example`). Filters live in the URL: the dashboard and
+to the backend directly and the backend needs no CORS. The one route handler,
+`app/employees/export/route.ts`, does the same for the dashboard's CSV download. The backend URL
+comes from `API_BASE_URL` (default `http://localhost:8000`; see `.env.example`). Filters live in the URL: the dashboard and
 insights use GET forms (`next/form`) and `parseDashboardQuery` turns search params into a valid
 query, dropping anything invalid. It keeps a salary sort without a country so the form can show it
 with a hint; `employeeListQuery` sorts that list by name. The filters form is keyed on the query,

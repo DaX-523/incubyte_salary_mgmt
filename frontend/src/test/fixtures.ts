@@ -4,6 +4,7 @@ import type {
   FilterOptions,
   MonthlyEmployee,
   Page,
+  PayByCountry,
   PayByJobTitle,
   Payroll,
   PayrollStatus,
@@ -42,6 +43,17 @@ export const ADA_OCTOBER_PAYROLL: Payroll = {
   currency: "GBP",
   payment_method: "bank_transfer",
 };
+
+export const ADA_PAYROLL_HISTORY: Payroll[] = [
+  ADA_OCTOBER_PAYROLL,
+  {
+    ...ADA_OCTOBER_PAYROLL,
+    id: 11,
+    month: "2026-09",
+    bonus: "0.00",
+    payment_method: "digital_wallet",
+  },
+];
 
 export const OPTIONS: FilterOptions = {
   countries: [
@@ -83,6 +95,7 @@ export const GERMAN_PAY: PayByJobTitle = {
       headcount: 41,
       min_salary: "3060.00",
       max_salary: "4140.00",
+      average_salary: "3612.20",
     },
     {
       job_title: "Software Engineer",
@@ -90,6 +103,26 @@ export const GERMAN_PAY: PayByJobTitle = {
       headcount: 52,
       min_salary: "4980.00",
       max_salary: "9360.00",
+      average_salary: "7105.75",
+    },
+  ],
+};
+
+export const PAY_BY_COUNTRY: PayByCountry = {
+  countries: [
+    {
+      country: "GB",
+      currency: "GBP",
+      headcount: 1004,
+      average_salary: "5012.35",
+      total_monthly_salary: "5032399.40",
+    },
+    {
+      country: "DE",
+      currency: "EUR",
+      headcount: 998,
+      average_salary: "5120.08",
+      total_monthly_salary: "5109839.84",
     },
   ],
 };

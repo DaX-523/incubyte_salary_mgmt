@@ -1,8 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError, getEmployee, getFilterOptions } from "@/lib/api";
-import { ADA, ALAN, OPTIONS } from "@/test/fixtures";
+import {
+  ApiError,
+  getEmployee,
+  getFilterOptions,
+  listEmployeePayrolls,
+} from "@/lib/api";
+import { ADA, ADA_PAYROLL_HISTORY, ALAN, OPTIONS } from "@/test/fixtures";
 
 import EmployeePage from "./page";
 
@@ -17,6 +22,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
   getEmployee: vi.fn(),
   getFilterOptions: vi.fn(),
+  listEmployeePayrolls: vi.fn(),
 }));
 
 function pageFor(id: string) {
@@ -30,6 +36,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-15T12:00:00Z"));
   vi.mocked(getFilterOptions).mockResolvedValue(OPTIONS);
+  vi.mocked(listEmployeePayrolls).mockResolvedValue(ADA_PAYROLL_HISTORY);
 });
 
 afterEach(() => {
@@ -55,6 +62,29 @@ describe("EmployeePage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Deactivate employee" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the employee's payroll history", async () => {
+    vi.mocked(getEmployee).mockResolvedValue(ADA);
+
+    render(await pageFor("1"));
+
+    expect(listEmployeePayrolls).toHaveBeenCalledWith(1);
+    expect(
+      screen.getByRole("region", { name: "Payroll history" }),
+    ).toContainElement(
+      screen.getByRole("table", { name: "Payrolls, newest month first" }),
+    );
+  });
+
+  it("keeps an inactive employee's payroll history visible", async () => {
+    vi.mocked(getEmployee).mockResolvedValue(ALAN);
+
+    render(await pageFor("2"));
+
+    expect(
+      screen.getByRole("link", { name: "October 2026" }),
     ).toBeInTheDocument();
   });
 
@@ -96,6 +126,9 @@ describe("EmployeePage", () => {
 
   it("shows not found when the employee does not exist", async () => {
     vi.mocked(getEmployee).mockRejectedValue(
+      new ApiError(404, "Employee 9 not found"),
+    );
+    vi.mocked(listEmployeePayrolls).mockRejectedValue(
       new ApiError(404, "Employee 9 not found"),
     );
 

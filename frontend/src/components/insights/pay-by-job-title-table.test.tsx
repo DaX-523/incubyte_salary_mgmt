@@ -16,14 +16,23 @@ describe("PayByJobTitleTable", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows headcount and salary range per job title", () => {
+  it("shows headcount, salary range and average per job title", () => {
     render(<PayByJobTitleTable data={GERMAN_PAY} />);
 
     const row = within(screen.getByRole("row", { name: /Accountant/ }));
     expect(row.getByText("Finance")).toBeInTheDocument();
     expect(row.getByText("41")).toBeInTheDocument();
     expect(row.getByText("€3,060.00")).toBeInTheDocument();
+    expect(row.getByText("€3,612.20")).toBeInTheDocument();
     expect(row.getByText("€4,140.00")).toBeInTheDocument();
+  });
+
+  it("labels the average column", () => {
+    render(<PayByJobTitleTable data={GERMAN_PAY} />);
+
+    expect(
+      screen.getByRole("columnheader", { name: "Average" }),
+    ).toBeInTheDocument();
   });
 
   it("links each job title to its peers ranked by salary", () => {

@@ -2,25 +2,29 @@ import { EmployeeTable } from "@/components/dashboard/employee-table";
 import { FiltersForm } from "@/components/dashboard/filters-form";
 import { Pagination } from "@/components/dashboard/pagination";
 import { PayrollStatusChart } from "@/components/dashboard/payroll-status-chart";
+import { buttonVariants } from "@/components/ui/button";
 import {
   getFilterOptions,
   getPayrollStatus,
   listEmployeesForMonth,
 } from "@/lib/api";
-import { employeeListQuery, parseDashboardQuery } from "@/lib/dashboard-query";
+import {
+  allowedFilters,
+  employeeExportHref,
+  employeeListQuery,
+  parseDashboardQuery,
+} from "@/lib/dashboard-query";
 import { formatMonth } from "@/lib/format";
-import { currentMonth } from "@/lib/month";
 
 export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   const [params, options] = await Promise.all([
     searchParams,
     getFilterOptions(),
   ]);
-  const query = parseDashboardQuery(params, {
-    month: currentMonth(new Date()),
-    countries: options.countries.map((country) => country.code),
-    jobTitles: options.job_titles.map((job) => job.title),
-  });
+  const query = parseDashboardQuery(
+    params,
+    allowedFilters(options, new Date()),
+  );
   const [status, employees] = await Promise.all([
     getPayrollStatus({
       month: query.month,
@@ -38,9 +42,18 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
       <PayrollStatusChart status={status} />
       <FiltersForm query={query} options={options} />
       <section aria-labelledby="employees-heading" className="grid gap-4">
-        <h2 id="employees-heading" className="text-lg font-semibold">
-          Employees
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="employees-heading" className="text-lg font-semibold">
+            Employees
+          </h2>
+          {/* A plain link: the CSV comes from a route handler, not a page. */}
+          <a
+            href={employeeExportHref(query)}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Download CSV
+          </a>
+        </div>
         <EmployeeTable rows={employees.items} month={query.month} />
         <Pagination
           query={query}

@@ -38,6 +38,8 @@ export type RequestOptions = {
   body?: unknown;
   /** The logged-in user's token, sent as `Authorization: Bearer <token>`. */
   token?: string;
+  /** "text" returns the body as it came, for downloads such as CSV; the default parses JSON. */
+  responseType?: "json" | "text";
 };
 
 export async function request<Result>(
@@ -61,6 +63,9 @@ export async function request<Result>(
   }
   if (response.status === 204) {
     return undefined as Result;
+  }
+  if (options.responseType === "text") {
+    return (await response.text()) as Result;
   }
   return (await response.json()) as Result;
 }

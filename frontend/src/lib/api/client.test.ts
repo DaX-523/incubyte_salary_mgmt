@@ -61,6 +61,17 @@ describe("request", () => {
     await expect(request("GET", "/employees/1")).resolves.toEqual({ id: 1 });
   });
 
+  it("returns the body as text when asked to", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("Employee ID,Name\r\n")),
+    );
+
+    await expect(
+      request("GET", "/employees/export", { responseType: "text" }),
+    ).resolves.toBe("Employee ID,Name\r\n");
+  });
+
   it("sends a JSON body with its content type", async () => {
     const fetchMock = respondWith(201, { id: 2 });
 

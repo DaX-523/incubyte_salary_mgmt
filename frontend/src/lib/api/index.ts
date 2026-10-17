@@ -8,12 +8,14 @@ import { ApiError, request, type RequestOptions } from "./client";
 import type {
   Employee,
   EmployeeCreate,
+  EmployeeExportQuery,
   EmployeeUpdate,
   FilterOptions,
   LoginToken,
   MonthlyEmployee,
   MonthlyEmployeeQuery,
   Page,
+  PayByCountry,
   PayByJobTitle,
   Payroll,
   PayrollCreate,
@@ -92,6 +94,14 @@ export function listEmployeesForMonth(query: MonthlyEmployeeQuery) {
   return authorized<Page<MonthlyEmployee>>("GET", "/employees", { query });
 }
 
+/** Every employee the monthly list shows for `query`, on one sheet, as CSV text. */
+export function exportEmployeesForMonth(query: EmployeeExportQuery) {
+  return authorized<string>("GET", "/employees/export", {
+    query,
+    responseType: "text",
+  });
+}
+
 export function getEmployee(id: number) {
   return authorized<Employee>("GET", `/employees/${id}`);
 }
@@ -106,6 +116,11 @@ export function updateEmployee(id: number, body: EmployeeUpdate) {
 
 export function deactivateEmployee(id: number) {
   return authorized<void>("DELETE", `/employees/${id}`);
+}
+
+/** The employee's payrolls, newest month first. */
+export function listEmployeePayrolls(employeeId: number) {
+  return authorized<Payroll[]>("GET", `/employees/${employeeId}/payrolls`);
 }
 
 export function createPayroll(employeeId: number, body: PayrollCreate) {
@@ -132,6 +147,10 @@ export function getPayByJobTitle(country: string) {
   return authorized<PayByJobTitle>("GET", "/insights/pay-by-job-title", {
     query: { country },
   });
+}
+
+export function getPayByCountry() {
+  return authorized<PayByCountry>("GET", "/insights/pay-by-country");
 }
 
 /**

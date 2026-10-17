@@ -13,7 +13,7 @@ import type { PayByJobTitle } from "@/lib/api";
 import { dashboardHref } from "@/lib/dashboard-query";
 import { countryName, formatCount, formatMoney } from "@/lib/format";
 
-/** Salary range per job title in one country, with a link to rank each title's peers by pay. */
+/** Salary range and average per job title in one country, with a link to rank its peers by pay. */
 export function PayByJobTitleTable({ data }: { data: PayByJobTitle }) {
   const country = countryName(data.country);
   if (data.job_titles.length === 0) {
@@ -34,6 +34,7 @@ export function PayByJobTitleTable({ data }: { data: PayByJobTitle }) {
           <TableHead>Job title</TableHead>
           <TableHead className="text-right">Headcount</TableHead>
           <TableHead className="text-right">Lowest</TableHead>
+          <TableHead className="text-right">Average</TableHead>
           <TableHead className="text-right">Highest</TableHead>
           <TableHead>
             <span className="sr-only">Peers</span>
@@ -50,6 +51,9 @@ export function PayByJobTitleTable({ data }: { data: PayByJobTitle }) {
             </TableCell>
             <TableCell className="text-right tabular-nums">
               {formatMoney(row.min_salary, data.currency)}
+            </TableCell>
+            <TableCell className="text-right tabular-nums">
+              {formatMoney(row.average_salary, data.currency)}
             </TableCell>
             <TableCell className="text-right tabular-nums">
               {formatMoney(row.max_salary, data.currency)}

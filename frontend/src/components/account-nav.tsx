@@ -7,7 +7,7 @@ import { getProfile } from "@/lib/api";
 
 // The app name links to the dashboard, so it needs no separate link.
 const LINKS = [
-  { href: "/insights", label: "Pay by job title" },
+  { href: "/insights", label: "Pay insights" },
   { href: "/employees/new", label: "Add employee" },
 ];
 

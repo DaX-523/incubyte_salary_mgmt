@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
 
+import { OPTIONS } from "@/test/fixtures";
+
 import {
   activeFilterLabels,
+  allowedFilters,
   type DashboardQuery,
   dashboardHref,
+  employeeExportFileName,
+  employeeExportHref,
+  employeeExportQuery,
   employeeListQuery,
   parseDashboardQuery,
   salarySortNeedsCountry,
@@ -26,6 +32,16 @@ const DEFAULTS: DashboardQuery = {
   page: 1,
   page_size: 25,
 };
+
+describe("allowedFilters", () => {
+  it("offers the catalog's countries and job titles, defaulting to this month", () => {
+    expect(allowedFilters(OPTIONS, new Date("2026-10-15T12:00:00Z"))).toEqual({
+      month: "2026-10",
+      countries: ["DE", "GB", "IN"],
+      jobTitles: ["Accountant", "Software Engineer"],
+    });
+  });
+});
 
 describe("parseDashboardQuery", () => {
   it("defaults to the current month, unfiltered, first page of 25, sorted by name", () => {
@@ -155,6 +171,66 @@ describe("dashboardHref", () => {
     expect(href).toBe(
       "/?month=2026-10&country=DE&job_title=Legal+Counsel&sort_by=monthly_salary&sort_order=desc&page=2&page_size=100",
     );
+  });
+});
+
+describe("employeeExportQuery", () => {
+  it("keeps the filters and order but drops the page", () => {
+    const query: DashboardQuery = {
+      ...DEFAULTS,
+      name: "ada",
+      country: "DE",
+      sort_by: "monthly_salary",
+      sort_order: "desc",
+      page: 3,
+      page_size: 100,
+    };
+
+    expect(employeeExportQuery(query)).toEqual({
+      month: "2026-10",
+      name: "ada",
+      email: undefined,
+      country: "DE",
+      job_title: undefined,
+      sort_by: "monthly_salary",
+      sort_order: "desc",
+    });
+  });
+
+  it("sorts by name when salary sorting has no country, like the list", () => {
+    const query: DashboardQuery = { ...DEFAULTS, sort_by: "monthly_salary" };
+
+    expect(employeeExportQuery(query).sort_by).toBe("name");
+  });
+});
+
+describe("employeeExportHref", () => {
+  it("always names the month, so the file matches the month on screen", () => {
+    expect(employeeExportHref(DEFAULTS)).toBe(
+      "/employees/export?month=2026-10",
+    );
+  });
+
+  it("carries the filters and order, but not the page", () => {
+    const href = employeeExportHref({
+      ...DEFAULTS,
+      job_title: "Legal Counsel",
+      country: "DE",
+      sort_by: "monthly_salary",
+      sort_order: "desc",
+      page: 4,
+      page_size: 50,
+    });
+
+    expect(href).toBe(
+      "/employees/export?month=2026-10&country=DE&job_title=Legal+Counsel&sort_by=monthly_salary&sort_order=desc",
+    );
+  });
+});
+
+describe("employeeExportFileName", () => {
+  it("names the file after the month", () => {
+    expect(employeeExportFileName("2026-09")).toBe("employees-2026-09.csv");
   });
 });
 

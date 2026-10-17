@@ -4,14 +4,12 @@ import { SelectField } from "@/components/form-fields";
 import { Button } from "@/components/ui/button";
 import { NativeSelectOption } from "@/components/ui/native-select";
 import type { CountryOption } from "@/lib/api";
-import { countryName } from "@/lib/format";
+import { byCountryName, countryName } from "@/lib/format";
 
 type Props = { countries: CountryOption[]; selected?: string };
 
 export function CountryPicker({ countries, selected }: Props) {
-  const sorted = [...countries].sort((a, b) =>
-    countryName(a.code).localeCompare(countryName(b.code)),
-  );
+  const sorted = [...countries].sort((a, b) => byCountryName(a.code, b.code));
   return (
     <Form
       action="/insights"
