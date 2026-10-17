@@ -1,8 +1,9 @@
 # Diagrams
 
-Derived from `REQUIREMENTS.md` (up to "org level simple stateless auth") and the code as built.
-Deactivation stays `DELETE /employees/{id}`, which sets `is_active` to false. `init.png` adds
-server-side pagination.
+Derived from `REQUIREMENTS.md` (up to "org level simple stateless auth") and the code as built,
+including what was added after review: pay by country and average salaries, payroll history, the
+CSV export, and no payrolls before the month an employee joined. Deactivation stays
+`DELETE /employees/{id}`, which sets `is_active` to false. `init.png` adds server-side pagination.
 
 ## Core data model
 
@@ -43,7 +44,7 @@ erDiagram
         string department "derived from job_title"
         string job_title "filter; from a fixed list"
         boolean is_active "false = deactivated, never deleted"
-        timestamp created_at
+        timestamp created_at "the joining month (UTC): first month on the books, first payable"
         timestamp updated_at
     }
 
@@ -77,7 +78,9 @@ flowchart LR
         read["GET /employees/{id}"]
         update["PATCH /employees/{id}<br/>country cannot change"]
         deactivate["DELETE /employees/{id}<br/>sets is_active to false"]
-        pay["POST /employees/{id}/payrolls<br/>currency from country"]
+        exportCsv["GET /employees/export<br/>the list's filters and sort, every page, as CSV<br/>cells starting with = + - @ get a leading '"]
+        history["GET /employees/{id}/payrolls<br/>pay history, newest month first"]
+        pay["POST /employees/{id}/payrolls<br/>currency from country<br/>not before the month the employee joined"]
     end
 
     subgraph payrolls["Payrolls (login required)"]
@@ -87,12 +90,13 @@ flowchart LR
 
     subgraph insights["Insights (login required)"]
         status["GET /insights/payroll-status<br/>month, country, job_title<br/>paid vs total (chart)"]
-        byTitle["GET /insights/pay-by-job-title<br/>country (required)<br/>headcount, lowest, highest"]
+        byCountry["GET /insights/pay-by-country<br/>per country: headcount, average, total monthly salaries<br/>each in its own currency, never added across countries"]
+        byTitle["GET /insights/pay-by-job-title<br/>country (required)<br/>headcount, lowest, average, highest"]
     end
 
     filters["GET /filters (public)<br/>countries, job titles, payment methods"]
 
-    errors["Errors: 401 not logged in, wrong password, session ended ·<br/>404 not found or another organization's record ·<br/>409 duplicate email, duplicate month, inactive employee · 422 invalid input"]
+    errors["Errors: 401 not logged in, wrong password, session ended ·<br/>404 not found or another organization's record ·<br/>409 duplicate email, duplicate month, inactive employee, month before joining ·<br/>422 invalid input"]
 
     style errors stroke-dasharray: 5 5
 ```
@@ -127,6 +131,27 @@ sequenceDiagram
     note over web,api: Any 401 later (expired or old token) redirects to /login
 ```
 
+## CSV export
+
+The browser only talks to the frontend, so the download goes through a route handler that adds
+the token, the same way pages fetch data.
+
+```mermaid
+sequenceDiagram
+    actor hr as HR user
+    participant web as Next.js server
+    participant api as FastAPI
+    participant db as PostgreSQL
+
+    hr->>web: Download CSV (link with the dashboard's month, filters and sort)
+    web->>web: parse the query like the dashboard, drop page and page size
+    web->>api: GET /employees/export with Authorization Bearer token
+    api->>db: same query as the list, without LIMIT and OFFSET
+    api->>api: write CSV, amounts as plain numbers, formula-like text prefixed with '
+    api-->>web: text/csv
+    web-->>hr: employees-YYYY-MM.csv (Content-Disposition: attachment)
+```
+
 ## Requirements across the stack
 
 ```mermaid
@@ -137,8 +162,9 @@ flowchart LR
         proxy["proxy.ts<br/>no session cookie → /login"]
         loginPage["Login /login<br/>token kept in an HttpOnly cookie"]
         dash["Dashboard /<br/>month (default: current) + filters<br/>paid vs total chart, paginated table"]
-        insightsPage["Pay by job title /insights<br/>one country at a time"]
-        employeePages["/employees/new, /employees/:id<br/>add, edit, record payroll, deactivate"]
+        exportRoute["/employees/export<br/>CSV of the dashboard's list, every page"]
+        insightsPage["Pay insights /insights<br/>by country, then by job title in one country"]
+        employeePages["/employees/new, /employees/:id<br/>add, edit, payroll history, record payroll, deactivate"]
         payrollPage["/payrolls/:id<br/>correct a payroll"]
         feval["Form validation<br/>(browser + server actions)"]
         errorPage["Error, loading and not-found pages"]
@@ -147,7 +173,7 @@ flowchart LR
     subgraph be["Backend (FastAPI)"]
         authCheck["Login and token check<br/>JWT signature, expiry, session_version"]
         beval["Validation (Pydantic)"]
-        services["Business rules<br/>derive department and currency,<br/>no payroll for inactive employees"]
+        services["Business rules<br/>derive department and currency,<br/>no payroll for inactive employees or before joining,<br/>averages rounded half up to the cent"]
         query["Filtering, sorting and pagination<br/>run in SQL, limited to the user's organization"]
     end
 
@@ -158,7 +184,7 @@ flowchart LR
         pay[("PAYROLLS<br/>unique per employee + month")]
     end
 
-    out["Left out on purpose:<br/>roles and user management, password reset,<br/>refresh tokens, limiting login attempts,<br/>dedicated cache (Redis)"]
+    out["Left out on purpose:<br/>roles and user management, password reset,<br/>refresh tokens, limiting login attempts,<br/>dedicated cache (Redis), CSV import,<br/>salary change history"]
 
     hr --> proxy --> loginPage
     loginPage -- "POST /auth/login" --> authCheck
@@ -166,10 +192,12 @@ flowchart LR
     hr --> insightsPage
     insightsPage -- "rank a job title by salary" --> dash
     dash --> employeePages --> payrollPage
+    dash -- "Download CSV" --> exportRoute
     employeePages --> feval
     payrollPage --> feval
     dash -- "GET /api/v1 + Bearer token (server side)" --> authCheck
     insightsPage --> authCheck
+    exportRoute --> authCheck
     feval -- "POST, PATCH, DELETE" --> authCheck
     authCheck --> users
     authCheck --> beval --> services --> query

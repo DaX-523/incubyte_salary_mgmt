@@ -39,15 +39,28 @@ it elsewhere, copy `frontend/.env.example` to `frontend/.env.local`.
 - **Dashboard** (`/`): one month's payroll, defaulting to the current month. It shows a chart of
   paid vs total employees, then a collapsible filters panel (name, email, country, job title) and
   the employee list, 25, 50 or 100 rows per page. Salary sorting is available once a country is
-  chosen.
-- **Pay by job title** (`/insights`): headcount and salary range per job title within one country.
-  "Rank by salary" opens that job title's peers sorted by pay, showing who is paid well above or
-  below them.
-- **Employees and payrolls**: add and edit employees, record and correct payrolls, and deactivate
-  employees who leave (history is kept).
+  chosen. **Download CSV** saves every employee the filters match (all pages, same order) as
+  `employees-YYYY-MM.csv`. Text that Excel would run as a formula (starting with `=`, `+`, `-` or
+  `@`) gets a leading `'`, so it shows as typed.
+- **Pay insights** (`/insights`): per country, the headcount and the average and total monthly
+  salary of active employees. Pick a country to see each job title's headcount and lowest,
+  average and highest salary. "Rank by salary" opens that job title's peers sorted by pay,
+  showing who is paid well above or below them.
+- **Employees and payrolls**: add and edit employees, see each employee's payroll history, record
+  and correct payrolls, and deactivate employees who leave (history is kept). An employee joins
+  in the month they are added and can't be paid for an earlier month.
 
 Salaries are in each country's local currency and are never converted, so pay is only compared
-within a country.
+within a country, and there is no organization-wide total. Averages are rounded half up to the
+cent.
+
+## Not built yet
+
+- **CSV import**, to move the existing spreadsheets in: validate the whole file with the API's
+  schemas, then save every row or none and list the errors by row. It needs a real joining date
+  on employees; today the month an employee is added counts as the month they joined.
+- **Salary change history**: payrolls record what was paid each month, but not who changed a
+  salary, or when.
 
 Tests use `TEST_DATABASE_URL` (default `postgresql://localhost:5432/salary_mgmt_test`) and wipe it.
 
