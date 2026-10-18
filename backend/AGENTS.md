@@ -45,7 +45,8 @@ app/
   schemas/       Pydantic request/response models (the API contract)
   services/      business logic: plain Python, no FastAPI imports
   repositories/  SQL behind small Protocols; tests swap in the fakes from tests/fakes.py
-  db/            SQLAlchemy models (models.py), metadata (base.py), migration runner (migrate.py)
+  db/            SQLAlchemy models (models.py), metadata (base.py), engine (engine.py),
+                 migration runner (migrate.py)
   seed/          demo data: pure generator, database writer, CLI (`python -m app.seed`)
 migrations/      Alembic environment and versions/
 Dockerfile       production image (uv, no dev dependencies); fly.toml deploys it to Fly.io

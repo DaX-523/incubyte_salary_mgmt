@@ -3,13 +3,13 @@ from contextlib import asynccontextmanager
 
 from anyio import to_thread
 from fastapi import APIRouter, Depends, FastAPI
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.api import auth, employees, filters, health, insights, payrolls
 from app.api.dependencies import get_current_user
 from app.api.errors import register_error_handlers
 from app.core.config import Settings, get_settings
+from app.db.engine import create_database_engine
 from app.db.migrate import run_migrations
 
 API_PREFIX = "/api/v1"
@@ -32,7 +32,7 @@ def create_app(
                 "Set JWT_SECRET (at least 32 characters) to serve data; see backend/.env.example"
             )
         await to_thread.run_sync(migrate, database_url)
-        engine = create_engine(database_url, pool_pre_ping=True)
+        engine = create_database_engine(database_url)
         app.state.session_factory = sessionmaker(engine)
         try:
             yield

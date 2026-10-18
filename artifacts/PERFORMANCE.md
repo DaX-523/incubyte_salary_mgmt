@@ -6,6 +6,7 @@ backend:
 database:
 - indexes on the given filters: country, job_title, department, name and payrolls.month.
 - unneeded fields were removed iteratively
+- connection pooling: Idle machines are suspended, costing storage only, and resume on the next request in under a second; the first request after a deploy waits for a normal start of a few seconds. 
 
 frontend (this commit involves one)
 - data is fetched on server components, off load from browser

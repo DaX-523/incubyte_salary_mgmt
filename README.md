@@ -105,7 +105,9 @@ CORS.
 
    Migrations run when the API starts. Idle machines are suspended, costing storage only, and
    resume on the next request in under a second; the first request after a deploy waits for a
-   normal start of a few seconds.
+   normal start of a few seconds. Database connections kept while suspended are dead on resume,
+   so the first request after a long idle can wait up to 3 more seconds while the API replaces
+   them (`app/db/engine.py`).
 
 3. **Demo data**, once, from `backend/` on your machine. It prints the demo login:
 

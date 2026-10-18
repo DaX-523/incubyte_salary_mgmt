@@ -9,7 +9,8 @@ primary_region = "sin"
   force_https = true
   # Idle machines are suspended (memory snapshot) and resume on the next request in a few hundred
   # ms, already listening. Suspended machines cost storage only. The first start after a deploy
-  # is still a cold boot of a few seconds.
+  # is still a cold boot of a few seconds. Pooled database connections are dead after a suspend;
+  # the API replaces them within a few seconds (app/db/engine.py).
   auto_stop_machines = "suspend"
   auto_start_machines = true
   min_machines_running = 0
