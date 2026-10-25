@@ -7,13 +7,12 @@ primary_region = "sin"
 [http_service]
   internal_port = 8000
   force_https = true
-  # Idle machines are suspended (memory snapshot) and resume on the next request in a few hundred
-  # ms, already listening. Suspended machines cost storage only. The first start after a deploy
-  # is still a cold boot of a few seconds. Pooled database connections are dead after a suspend;
-  # the API replaces them within a few seconds (app/db/engine.py).
+  # One machine always runs, so no request waits for it to wake. A machine resumed from a suspend
+  # finds its pooled database connections dead, and the first request would wait for them to time
+  # out (app/db/engine.py). Machines beyond the first, if the app is scaled out, still suspend.
   auto_stop_machines = "suspend"
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
 
   [[http_service.checks]]
     grace_period = "15s"

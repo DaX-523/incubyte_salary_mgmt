@@ -103,11 +103,9 @@ CORS.
    curl https://salary-mgmt-api.fly.dev/health
    ```
 
-   Migrations run when the API starts. Idle machines are suspended, costing storage only, and
-   resume on the next request in under a second; the first request after a deploy waits for a
-   normal start of a few seconds. Database connections kept while suspended are dead on resume,
-   so the first request after a long idle can wait up to 3 more seconds while the API replaces
-   them (`app/db/engine.py`).
+   Migrations run when the API starts. One machine always runs (a few dollars a month), so no
+   request waits for it to wake: a machine resumed from a suspend finds its pooled database
+   connections dead. The first request after a deploy waits for a normal start of a few seconds.
 
 3. **Demo data**, once, from `backend/` on your machine. It prints the demo login:
 
